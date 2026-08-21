@@ -409,28 +409,28 @@ Once configured, try these prompts in Claude or Cursor:
 - "Run a health check on my project"
 - "What's the overall health score for project X?"
 
-### Coverage Analysis (NEW!)
+### Coverage Analysis
 - "Show me the test coverage gaps in my project"
 - "Which test cases don't have automated tests?"
 - "Which folders have low automation coverage?"
 
-### AI-Assisted (NEW!)
+### AI-Assisted
 - "Suggest test cases for the user login feature"
 - "Generate test case ideas for: users can upload profile pictures up to 5MB"
 - "Create edge case tests for the payment checkout flow"
 
-### Bulk Operations (NEW!)
+### Bulk Operations
 - "Update all test cases TC-001, TC-002, TC-003 to status Approved"
 - "Add the 'regression' tag to all selected test cases"
 - "Set priority to High for these 5 test cases"
 
-### Reporting (NEW!)
+### Reporting
 - "Generate a summary report for my project"
 - "Export a failures report for the last 7 days"
 - "Show me the trends report in markdown format"
 - "Generate a release status report for release v2.1.0"
 
-### External Ticket Links (NEW!)
+### External Ticket Links
 - "Link test case TC-42 to Jira issue PROJ-123"
 - "Create a test case for the password reset flow and link it to M00NPROJ-22"
 - "Show me all Jira tickets linked to test case TC-42"
