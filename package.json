@@ -16,9 +16,9 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm test",
     "clean": "rimraf dist",
-    "test": "npm run build && node --test"
+    "test": "npm run build && node --test \"test/**/*.test.mjs\""
   },
   "keywords": [
     "mcp",
