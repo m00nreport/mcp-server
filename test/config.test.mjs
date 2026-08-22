@@ -5,16 +5,11 @@ import { parseIntEnv } from '../dist/config.js';
 /**
  * How a number arrives from the environment.
  *
- * Every one of these values reaches this function as a string, because that is
- * all an environment variable can be. The parsing therefore has to be strict:
- * the alternative is not a rejected value but a silently wrong one, and a
- * silently wrong timeout is indistinguishable from a broken server.
- *
- * This was parseInt, which stops at the first character it does not understand
- * and reports no problem. M00N_TIMEOUT_MS=60s became a sixty MILLISECOND timeout,
- * every call failed, and the error message advised the user to raise the timeout -
- * so the one piece of guidance they had led them further from the cause. A unit
- * suffix is the natural thing to write for a setting whose name ends in MS.
+ * Every one of these values reaches the function as a string, because that is all
+ * an environment variable can be. Parsing is strict on purpose: a lenient parse
+ * stops at the first character it does not understand and reports no problem, so
+ * the outcome is not a rejected value but a silently wrong one, and a silently
+ * wrong timeout is indistinguishable from a broken server.
  */
 
 const DEFAULT = 30000;
@@ -24,8 +19,8 @@ test('a plain number is used', () => {
 });
 
 test('surrounding whitespace is tolerated', () => {
-  // A YAML block scalar or a shell heredoc leaves it, and rejecting the value
-  // over a space would be its own small betrayal.
+  // A YAML block scalar or a shell heredoc leaves it, and a stray space is not
+  // a reason to fall back to the default.
   assert.equal(parseIntEnv('  5000  ', DEFAULT), 5000);
 });
 
@@ -48,9 +43,8 @@ const REJECTED = [
 
 for (const [label, value] of REJECTED) {
   test(`${label} falls back to the default rather than to a wrong number`, () => {
-    // The important half is "rather than to a wrong number". parseInt turned
-    // most of these into a plausible-looking value that was not what the user
-    // meant, and nothing anywhere said so.
+    // The important half is "rather than to a wrong number": a lenient parse
+    // turns most of these into a plausible value the user did not ask for.
     assert.equal(parseIntEnv(value, DEFAULT), DEFAULT, `${JSON.stringify(value)} should not parse`);
   });
 }
@@ -60,9 +54,8 @@ test('an absent value uses the default', () => {
 });
 
 test('a rejected value is announced, not swallowed', () => {
-  // A setting that silently does nothing is how someone spends an afternoon on
-  // the wrong problem. MCP uses stdout for the protocol, so this has to be
-  // stderr.
+  // An ignored setting has to say so, and on stderr: MCP owns stdout for the
+  // protocol.
   const messages = [];
   const realError = console.error;
   console.error = (...args) => messages.push(args.join(' '));

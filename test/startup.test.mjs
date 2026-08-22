@@ -11,22 +11,14 @@ const API_CLIENT = readFileSync(join(here, '..', 'src', 'api-client.ts'), 'utf8'
 /**
  * Startup must survive an optional listing coming back in an unexpected shape.
  *
- * The failure was quiet and total. fetchStaticResources returns
- * response.data.staticResources without checking the field exists, so a 2xx with
- * a body that lacks it assigns undefined. The assignment succeeds; the .length
- * that throws does so INSIDE the try, where it is caught and logged as "not
- * available". The next line reads .length again, OUTSIDE the try - and that
- * TypeError propagated out of startup.
+ * A proxy, a stale API version or an auth page answering 200 with HTML all send a
+ * 2xx body without the field a listing expects. None of them may stop the server
+ * starting, because every tool goes down with it.
  *
- * The cost is out of all proportion to the cause: the server refuses to start
- * and all its tools disappear from the client, over an optional resource listing
- * that nobody was using. A proxy, a stale API version or an auth page returning
- * 200 with HTML is enough.
- *
- * Asserted against the source rather than by starting a server, because
- * reproducing it needs a running API answering with a wrong body - which is the
- * situation, not something a unit test should have to stand up. What the source
- * check pins is the specific shape that made it possible.
+ * Asserted against the source rather than by starting a server: reproducing the
+ * shape needs a live API answering with a wrong body, which is the situation
+ * itself rather than something a unit test should stand up. What these checks pin
+ * is the structure that keeps it harmless.
  */
 
 test('every optional listing is normalised to an array before it is measured', () => {
@@ -64,27 +56,25 @@ test('an optional fetch that fails does not decide whether the server starts', (
 });
 
 test('an optional fetch is retried before it is given up on', () => {
-  // One attempt used to decide the whole SESSION: a single 502 from a proxy and
-  // the client is told, for as long as it stays connected, that this server has
-  // no prompts. Users concluded their instance did not support them.
+  // One attempt decides the whole session: capabilities are advertised at
+  // startup, so a single 502 from a proxy hides prompts until the client
+  // reconnects.
   const helper = SERVER.slice(SERVER.indexOf('const optional ='), SERVER.indexOf('// Step 2a'));
   assert.match(helper, /attempt <= [2-9]/, 'optional() must try more than once');
   assert.match(helper, /setTimeout/, 'and wait between attempts');
 });
 
 test('a fetch that is given up on says why', () => {
-  // "Prompts not available" named neither the cause nor the remedy. Whether the
-  // endpoint is missing, the key lacks a scope, or a proxy answered is exactly
-  // what the user needs to know, and the server had it in hand.
+  // Whether the endpoint is missing, the key lacks a scope or a proxy answered
+  // is what decides the next step, and the failure already carries it.
   const helper = SERVER.slice(SERVER.indexOf('const optional ='), SERVER.indexOf('// Step 2a'));
   assert.match(helper, /not available: \$\{reason\}/, 'the failure message must carry the reason');
 });
 
 test('a listing endpoint reads its field without assuming it exists', () => {
-  // The root cause, stated as a rule rather than as a patch: returning
-  // response.data.<field> straight out is what turns an unexpected 2xx body into
-  // an undefined that travels. Either the client defends, or every caller must -
-  // and the caller that forgot is the one that broke startup.
+  // Stated as a rule: returning response.data.<field> straight out turns an
+  // unexpected 2xx body into an undefined that travels. The client defends once,
+  // so no caller has to remember to.
   const returns = API_CLIENT.match(/return response\.data\.\w+;/g) || [];
   const unguarded = returns.filter((line) => !line.includes('??') && !line.includes('||'));
   assert.ok(

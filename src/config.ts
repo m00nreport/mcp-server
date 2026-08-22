@@ -80,10 +80,8 @@ export function parseIntEnv(value: string | undefined, defaultValue: number): nu
   const trimmed = String(value).trim();
   if (trimmed === '') return defaultValue;
 
-  // Strict, because parseInt is not. parseInt("60s", 10) is 60, and isNaN never
-  // sees a problem - so M00N_TIMEOUT_MS=60s became a SIXTY MILLISECOND timeout,
-  // every call failed, and the error message advised raising the timeout. The
-  // unit suffix is the natural thing to write for a value whose name ends in MS.
+  // Strict, because parseInt is not: parseInt("60s", 10) is 60 and reports no
+  // problem, so a unit suffix would quietly become a 60 millisecond timeout.
   if (!/^[+-]?\d+$/.test(trimmed)) {
     console.error(
       `[m00n-mcp] Ignoring "${trimmed}": this setting is a plain number of ` +
@@ -104,12 +102,9 @@ export function parseIntEnv(value: string | undefined, defaultValue: number): nu
  * Log message to stderr (MCP uses stdout for protocol, stderr for logs)
  */
 export function log(message: string, _config?: Config): void {
-  // Always. It was gated on M00N_DEBUG, which is off by default, so the server
-  // ran silently through every startup step and server.onerror printed nothing
-  // at all - the two failures that most need explaining were the two with no
-  // output. This is stderr, which is where an MCP client collects a server's
-  // log and where it belongs; a handful of lines per startup is not noise.
-  // debug() below stays gated, and is where per-request detail goes.
+  // Unconditional, and on stderr, where an MCP client collects a server's log:
+  // startup steps and errors are the lines worth having without being asked for.
+  // Per-request detail goes through debug(), which stays gated on M00N_DEBUG.
   console.error(`[m00n-mcp] ${message}`);
 }
 

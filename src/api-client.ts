@@ -198,13 +198,10 @@ export class M00NApiClient {
     }
   }
 
-  // Every listing below answers with an empty list rather than undefined when a 2xx body
-  // lacks the field. Returning the field straight out is what turned an unexpected 2xx -
-  // a proxy, a stale API version, an auth page answering 200 with HTML - into an undefined
-  // that travelled: the caller assigned it, the .length that threw did so inside a try and
-  // was logged as "not available", and the NEXT read of .length was outside that try and
-  // took down startup. All the tools disappeared from the client over an optional
-  // resource listing nobody was using.
+  // Every listing below answers with an empty array when a 2xx body lacks the field it
+  // expects. A proxy, a stale API version or an auth page answering 200 with HTML all
+  // produce such a body, and returning the field straight out would hand the caller an
+  // undefined that only throws somewhere further along.
 
   /**
    * Fetch resource templates from API (dynamic URIs)
@@ -266,9 +263,7 @@ export class M00NApiClient {
   /**
    * Handle API errors with meaningful messages.
    *
-   * The mapping itself lives in errors.ts, where a test can reach it: as a
-   * private method nothing could exercise it, and two of its messages had come
-   * to contradict what the server actually said.
+   * The mapping itself lives in errors.ts, where a test can reach it directly.
    */
   private handleError(error: unknown, context: string): Error {
     return describeApiError(error, context, this.config.apiUrl);

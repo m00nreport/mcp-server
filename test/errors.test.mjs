@@ -5,13 +5,12 @@ import { describeApiError, retryAfterSeconds } from '../dist/errors.js';
 /**
  * What the user is told when a call fails.
  *
- * Two of these messages used to throw away the answer and replace it with a
- * guess. That is worse than saying nothing: the server had already sent the fix,
- * and the client sent the user somewhere else.
+ * The rule these cases pin: whatever the server explained wins over anything the
+ * client can guess, and a guess is offered only when there is no explanation.
  *
- * The shapes below are what axios hands the client - `isAxiosError`, a `response`
- * with a status, a body and headers - so the mapping is exercised exactly as it
- * runs, without standing up an HTTP server to produce a 404 on demand.
+ * The shapes below are what axios hands the client (`isAxiosError`, a `response`
+ * with a status, a body and headers), so the mapping runs exactly as it does in
+ * production without standing up an HTTP server to produce a 404 on demand.
  */
 
 const API_URL = 'https://api.m00nreport.com';
@@ -28,10 +27,8 @@ function axiosError({ status, data, headers, code, message = 'Request failed' })
 // ------------------------------------------------------------------ 404
 
 test('a 404 carries the reason the server gave', () => {
-  // The everyday 404 here is a tool call naming something that does not exist,
-  // and the answer usually contains the remedy verbatim. The client replaced it
-  // with "API version mismatch or incorrect URL", sending the user to check
-  // three settings that were all correct.
+  // The everyday 404 is a tool call naming something that does not exist, and
+  // the answer usually carries the remedy verbatim.
   const error = describeApiError(
     axiosError({
       status: 404,
@@ -48,8 +45,8 @@ test('a 404 carries the reason the server gave', () => {
 });
 
 test('a 404 with no body still explains itself', () => {
-  // The other direction: an actual missing endpoint has no message to relay, and
-  // that is the case the old text was written for. It keeps it.
+  // The other direction: a genuinely missing endpoint has no message to relay,
+  // so the guess about version and URL is the useful thing to say.
   const error = describeApiError(axiosError({ status: 404 }), 'fetch prompts', API_URL);
 
   assert.match(error.message, /version mismatch|not found/i);
@@ -79,10 +76,8 @@ test('an empty message is not mistaken for one', () => {
 // ------------------------------------------------------------------ 429
 
 test('a rate limit says how long to wait', () => {
-  // The server sends Retry-After, X-RateLimit-Reset and the seconds in the body,
-  // and the client kept none of them. The id-resolution loop our own
-  // instructions mandate makes 60/min easy to reach, and the result was a bulk
-  // edit stopped half-applied with no idea when to resume.
+  // The server sends the delay in three places. An agent that hits the limit
+  // part-way through a bulk edit needs it to know when to resume.
   const error = describeApiError(
     axiosError({ status: 429, headers: { 'retry-after': '30' } }),
     'tool call: update_test_case',
@@ -139,7 +134,7 @@ test('a nonsense Retry-After is ignored rather than propagated', () => {
   assert.equal(retryAfterSeconds(axiosError({ status: 429, headers: { 'retry-after': 'soon' } })), undefined);
 });
 
-// ------------------------------------------------- the messages that were right
+// ----------------------------------------------------- the rest of the mapping
 
 test('401 still points at the key', () => {
   const error = describeApiError(axiosError({ status: 401 }), 'fetch tools', API_URL);

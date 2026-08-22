@@ -1,10 +1,8 @@
 /**
  * Turning an API failure into a message the user can act on.
  *
- * Kept apart from the client, and exported, because this is the part a test can
- * hold still: the mapping from a response to a sentence. Inside the class it was
- * a private method that nothing could reach, which is how two of the messages
- * below came to say the opposite of what the server had said.
+ * Exported, and kept apart from the client, so the mapping from a response to a
+ * sentence can be held still by a test.
  */
 
 /** The error body our API sends. Every field is optional in practice. */
@@ -50,9 +48,8 @@ function headerValue(
 
 /**
  * How long to wait before retrying, from whichever of the three places the
- * server put it. All three are sent, and the client kept none of them - so the
- * agent that hit the limit had no way to know whether to wait a second or a
- * minute, and a bulk edit stopped half-applied.
+ * server put it: the Retry-After header, X-RateLimit-Reset, or `retryAfter` in
+ * the body. Undefined when none of them carries a usable value.
  */
 export function retryAfterSeconds(error: unknown): number | undefined {
   if (!isAxiosLike(error) || !error.response) return undefined;
@@ -135,11 +132,9 @@ export function describeApiError(error: unknown, context: string, apiUrl: string
         `Access denied: ${said || 'You do not have permission for this operation.'}`
       );
     case 404:
-      // The server's own message is the useful half and it used to be discarded
-      // for a guess. A 404 from a tool call names what was not found and often
-      // lists what is - "Project not found. Available projects: ..." - and the
-      // client replaced that with "API version mismatch or incorrect URL",
-      // sending the user to check three settings that were all correct.
+      // A 404 from a tool call names what was not found and often lists what is,
+      // so the server's message wins. The guess about the URL is reserved for a
+      // 404 with no body, which is what a genuinely missing endpoint looks like.
       return new Error(
         said
           ? `Not found during ${context}: ${said}`

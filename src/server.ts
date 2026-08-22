@@ -57,12 +57,9 @@ export async function createServer(config: Config): Promise<void> {
     throw new Error('No tools available from M00N Report API. Please check your API key permissions.');
   }
 
-  // One attempt was all an optional listing ever got, and its result decided
-  // the SESSION: a single 502 from a proxy, or a restart landing mid-startup,
-  // and the client is told for as long as it stays connected that this server
-  // has no prompts and no resources. Users concluded their instance did not
-  // support them. Two more tries, half a second apart, cost nothing on the path
-  // where the first one works.
+  // Capabilities are advertised once at startup and never revisited, so a single
+  // failed listing hides prompts or resources for the whole session. The retries
+  // cost nothing on the path where the first attempt works.
   const optional = async <T>(what: string, fetch: () => Promise<T>): Promise<T | undefined> => {
     let lastError: unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -75,8 +72,8 @@ export async function createServer(config: Config): Promise<void> {
         }
       }
     }
-    // With the reason. "Not available" said nothing about whether the endpoint
-    // is missing, the key lacks a scope, or a proxy was in the way.
+    // Carry the reason: a missing endpoint, a key without the scope and a proxy
+    // in the way are indistinguishable without it.
     const reason = lastError instanceof Error ? lastError.message : String(lastError);
     log(`${what} not available: ${reason}`, config);
     return undefined;
@@ -99,11 +96,8 @@ export async function createServer(config: Config): Promise<void> {
     (await optional('Static resources', () => apiClient.fetchStaticResources())) ?? [];
   resourceTemplates =
     (await optional('Resource templates', () => apiClient.fetchResourceTemplates())) ?? [];
-  // Normalised because a 2xx with an unexpected body assigns undefined here: the
-  // API client returns response.data.staticResources without checking it exists,
-  // the assignment succeeds, and the .length that throws does so INSIDE the try.
-  // This line is outside it, so the TypeError escaped and took down startup -
-  // losing all the tools over an optional resource listing.
+  // Normalised here, outside the fetch, because the length reads below are outside
+  // it too: an optional listing must not be able to stop the server starting.
   staticResources = Array.isArray(staticResources) ? staticResources : [];
   resourceTemplates = Array.isArray(resourceTemplates) ? resourceTemplates : [];
   const hasResources = staticResources.length > 0 || resourceTemplates.length > 0;
