@@ -103,10 +103,14 @@ export function parseIntEnv(value: string | undefined, defaultValue: number): nu
 /**
  * Log message to stderr (MCP uses stdout for protocol, stderr for logs)
  */
-export function log(message: string, config?: Config): void {
-  if (config?.debug || !config) {
-    console.error(`[m00n-mcp] ${message}`);
-  }
+export function log(message: string, _config?: Config): void {
+  // Always. It was gated on M00N_DEBUG, which is off by default, so the server
+  // ran silently through every startup step and server.onerror printed nothing
+  // at all - the two failures that most need explaining were the two with no
+  // output. This is stderr, which is where an MCP client collects a server's
+  // log and where it belongs; a handful of lines per startup is not noise.
+  // debug() below stays gated, and is where per-request detail goes.
+  console.error(`[m00n-mcp] ${message}`);
 }
 
 /**

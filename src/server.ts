@@ -57,37 +57,48 @@ export async function createServer(config: Config): Promise<void> {
     throw new Error('No tools available from M00N Report API. Please check your API key permissions.');
   }
 
+  // One attempt was all an optional listing ever got, and its result decided
+  // the SESSION: a single 502 from a proxy, or a restart landing mid-startup,
+  // and the client is told for as long as it stays connected that this server
+  // has no prompts and no resources. Users concluded their instance did not
+  // support them. Two more tries, half a second apart, cost nothing on the path
+  // where the first one works.
+  const optional = async <T>(what: string, fetch: () => Promise<T>): Promise<T | undefined> => {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        return await fetch();
+      } catch (error) {
+        lastError = error;
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+        }
+      }
+    }
+    // With the reason. "Not available" said nothing about whether the endpoint
+    // is missing, the key lacks a scope, or a proxy was in the way.
+    const reason = lastError instanceof Error ? lastError.message : String(lastError);
+    log(`${what} not available: ${reason}`, config);
+    return undefined;
+  };
+
   // Step 2a: Fetch server instructions
   log('Fetching server instructions...', config);
   let instructions: string | undefined;
-  try {
-    const fetched = await apiClient.fetchInstructions();
-    if (fetched) {
-      instructions = fetched;
-      log(`Loaded server instructions (${fetched.length} chars)`, config);
-    } else {
-      log('No server instructions available', config);
-    }
-  } catch (error) {
-    log('Server instructions not available', config);
+  const fetched = await optional('Server instructions', () => apiClient.fetchInstructions());
+  if (fetched) {
+    instructions = fetched;
+    log(`Loaded server instructions (${fetched.length} chars)`, config);
   }
 
   // Step 2b: Fetch available resources (static and templates)
   log('Fetching available resources...', config);
   let staticResources: StaticResource[] = [];
   let resourceTemplates: ResourceTemplate[] = [];
-  try {
-    staticResources = await apiClient.fetchStaticResources();
-    log(`Loaded ${staticResources.length} static resources`, config);
-  } catch (error) {
-    log('Static resources not available', config);
-  }
-  try {
-    resourceTemplates = await apiClient.fetchResourceTemplates();
-    log(`Loaded ${resourceTemplates.length} resource templates`, config);
-  } catch (error) {
-    log('Resource templates not available', config);
-  }
+  staticResources =
+    (await optional('Static resources', () => apiClient.fetchStaticResources())) ?? [];
+  resourceTemplates =
+    (await optional('Resource templates', () => apiClient.fetchResourceTemplates())) ?? [];
   // Normalised because a 2xx with an unexpected body assigns undefined here: the
   // API client returns response.data.staticResources without checking it exists,
   // the assignment succeeds, and the .length that throws does so INSIDE the try.
@@ -100,13 +111,7 @@ export async function createServer(config: Config): Promise<void> {
   // Step 2c: Fetch available prompts
   log('Fetching available prompts...', config);
   let prompts: Prompt[] = [];
-  try {
-    prompts = await apiClient.fetchPrompts();
-    log(`Loaded ${prompts.length} prompts: ${prompts.map((p) => p.name).join(', ')}`, config);
-  } catch (error) {
-    // Prompts are optional - don't fail if not available
-    log('Prompts not available (API may not support them yet)', config);
-  }
+  prompts = (await optional('Prompts', () => apiClient.fetchPrompts())) ?? [];
 
   prompts = Array.isArray(prompts) ? prompts : [];
 

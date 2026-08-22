@@ -7,6 +7,7 @@
 // - Tool discovery and execution
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import { describeApiError } from './errors.js';
 import https from 'https';
 import { Config, debug } from './config.js';
 import { VERSION } from './version.js';
@@ -263,81 +264,13 @@ export class M00NApiClient {
   }
 
   /**
-   * Handle API errors with meaningful messages
+   * Handle API errors with meaningful messages.
+   *
+   * The mapping itself lives in errors.ts, where a test can reach it: as a
+   * private method nothing could exercise it, and two of its messages had come
+   * to contradict what the server actually said.
    */
   private handleError(error: unknown, context: string): Error {
-    if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<ApiError>;
-      
-      // Network error (no response)
-      if (!axiosError.response) {
-        if (axiosError.code === 'ECONNREFUSED') {
-          return new Error(
-            `Cannot connect to M00N Report API at ${this.config.apiUrl}. ` +
-            'Please verify the URL is correct and the server is running.'
-          );
-        }
-        if (axiosError.code === 'ENOTFOUND') {
-          return new Error(
-            `Cannot resolve M00N Report API host: ${this.config.apiUrl}. ` +
-            'Please check the URL is correct.'
-          );
-        }
-        if (axiosError.code === 'ETIMEDOUT' || axiosError.code === 'ECONNABORTED') {
-          return new Error(
-            `Request to M00N Report API timed out. ` +
-            'Try increasing M00N_TIMEOUT_MS or check network connectivity.'
-          );
-        }
-        if (axiosError.message.includes('self-signed') || axiosError.message.includes('certificate')) {
-          return new Error(
-            `SSL certificate error connecting to ${this.config.apiUrl}. ` +
-            'For self-signed certificates, set M00N_INSECURE_SSL=true'
-          );
-        }
-        return new Error(`Network error during ${context}: ${axiosError.message}`);
-      }
-
-      // HTTP error response
-      const status = axiosError.response.status;
-      const data = axiosError.response.data;
-
-      switch (status) {
-        case 401:
-          return new Error(
-            'Authentication failed: Invalid or expired MCP key. ' +
-            'Please check M00N_API_KEY is a valid MCP key from Settings → MCP Keys.'
-          );
-        case 403:
-          return new Error(
-            `Access denied: ${data?.message || 'You do not have permission for this operation.'}`
-          );
-        case 404:
-          return new Error(
-            `API endpoint not found: ${context}. ` +
-            'This may indicate an API version mismatch or incorrect URL.'
-          );
-        case 429:
-          return new Error(
-            'Rate limit exceeded. Please wait before making more requests.'
-          );
-        case 500:
-        case 502:
-        case 503:
-          return new Error(
-            `M00N Report API server error (${status}): ${data?.message || 'Please try again later.'}`
-          );
-        default:
-          return new Error(
-            `API error (${status}) during ${context}: ${data?.message || axiosError.message}`
-          );
-      }
-    }
-
-    // Non-axios error
-    if (error instanceof Error) {
-      return error;
-    }
-    return new Error(`Unknown error during ${context}: ${String(error)}`);
+    return describeApiError(error, context, this.config.apiUrl);
   }
 }

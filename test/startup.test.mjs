@@ -48,15 +48,36 @@ test('the normalisation happens before the first length read', () => {
 });
 
 test('an optional fetch that fails does not decide whether the server starts', () => {
-  // Each of the three is wrapped, and the wrapping is what makes them optional.
-  // A future fetch added without one would take the tools down with it.
-  const optional = ['fetchStaticResources', 'fetchResourceTemplates', 'fetchPrompts', 'fetchInstructions'];
-  for (const call of optional) {
+  // Each of the four goes through optional(), which is what makes it optional:
+  // it swallows the failure, retries first, and explains itself. A future fetch
+  // added without it would take all the tools down with it.
+  const optionalFetches = ['fetchStaticResources', 'fetchResourceTemplates', 'fetchPrompts', 'fetchInstructions'];
+  for (const call of optionalFetches) {
     const index = SERVER.indexOf(`apiClient.${call}(`);
     assert.ok(index > -1, `${call} should be called during startup`);
-    const before = SERVER.slice(Math.max(0, index - 400), index);
-    assert.ok(before.includes('try {'), `${call} must be inside a try, or a bad answer stops startup`);
+    const before = SERVER.slice(Math.max(0, index - 200), index);
+    assert.ok(
+      before.includes('optional('),
+      `${call} must go through optional(), or a bad answer stops startup`
+    );
   }
+});
+
+test('an optional fetch is retried before it is given up on', () => {
+  // One attempt used to decide the whole SESSION: a single 502 from a proxy and
+  // the client is told, for as long as it stays connected, that this server has
+  // no prompts. Users concluded their instance did not support them.
+  const helper = SERVER.slice(SERVER.indexOf('const optional ='), SERVER.indexOf('// Step 2a'));
+  assert.match(helper, /attempt <= [2-9]/, 'optional() must try more than once');
+  assert.match(helper, /setTimeout/, 'and wait between attempts');
+});
+
+test('a fetch that is given up on says why', () => {
+  // "Prompts not available" named neither the cause nor the remedy. Whether the
+  // endpoint is missing, the key lacks a scope, or a proxy answered is exactly
+  // what the user needs to know, and the server had it in hand.
+  const helper = SERVER.slice(SERVER.indexOf('const optional ='), SERVER.indexOf('// Step 2a'));
+  assert.match(helper, /not available: \$\{reason\}/, 'the failure message must carry the reason');
 });
 
 test('a listing endpoint reads its field without assuming it exists', () => {
