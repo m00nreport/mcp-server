@@ -1,5 +1,10 @@
 # @m00nsolutions/mcp-server
 
+[![npm](https://img.shields.io/npm/v/@m00nsolutions/mcp-server.svg)](https://www.npmjs.com/package/@m00nsolutions/mcp-server)
+[![CI](https://github.com/m00nreport/mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/m00nreport/mcp-server/actions/workflows/ci.yml)
+[![node](https://img.shields.io/node/v/@m00nsolutions/mcp-server.svg)](https://www.npmjs.com/package/@m00nsolutions/mcp-server)
+[![license](https://img.shields.io/npm/l/@m00nsolutions/mcp-server.svg)](LICENSE)
+
 Agentic test management over MCP. M00N Report is an AI-native test management platform: manage test cases, manual runs and releases, with real-time automated results and a 50+ tool MCP server.
 
 This server lets an AI assistant do the work, not just read about it: author test cases, plan and populate manual test executions, link automation back to the manual cases it covers, cut releases, and read project health - the same actions a human takes in the app, through **50+ tools**, guided prompts and read-only resources.
@@ -336,11 +341,11 @@ For environments without internet access:
    npm pack @m00nsolutions/mcp-server
    ```
 
-2. Transfer `m00nsolutions-mcp-server-1.0.0.tgz` to the air-gapped machine
+2. Transfer the resulting `m00nsolutions-mcp-server-<version>.tgz` to the air-gapped machine
 
 3. Install from tarball:
    ```bash
-   npm install -g ./m00nsolutions-mcp-server-1.0.0.tgz
+   npm install -g ./m00nsolutions-mcp-server-<version>.tgz
    ```
 
 4. Configure to use the global installation:
@@ -439,6 +444,7 @@ Once configured, try these prompts in Claude or Cursor:
 
 ## Support
 
+- **Package on npm:** https://www.npmjs.com/package/@m00nsolutions/mcp-server
 - **Documentation:** https://m00nreport.com/documentation/getting-started
 - **Issues:** https://github.com/m00nreport/mcp-server/issues
 - **Email:** support@m00nreport.com
