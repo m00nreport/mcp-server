@@ -19,3 +19,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # The badge on the README used to report a build with no tests behind it,
+      # which is the specific failure a badge exists to prevent.
+      - name: Unit tests
+        run: node --test

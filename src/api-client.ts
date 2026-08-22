@@ -162,7 +162,7 @@ export class M00NApiClient {
     try {
       debug(`Fetching tools from ${this.config.apiUrl}/api/mcp/tools`, this.config);
       const response = await this.client.get<{ tools: Tool[]; count: number }>('/api/mcp/tools');
-      return response.data.tools;
+      return response.data.tools ?? [];
     } catch (error) {
       throw this.handleError(error, 'fetch tools');
     }
@@ -191,11 +191,19 @@ export class M00NApiClient {
     try {
       debug(`Fetching static resources from ${this.config.apiUrl}/api/mcp/resources`, this.config);
       const response = await this.client.get<{ resources: StaticResource[]; count: number }>('/api/mcp/resources');
-      return response.data.resources;
+      return response.data.resources ?? [];
     } catch (error) {
       throw this.handleError(error, 'fetch resources');
     }
   }
+
+  // Every listing below answers with an empty list rather than undefined when a 2xx body
+  // lacks the field. Returning the field straight out is what turned an unexpected 2xx -
+  // a proxy, a stale API version, an auth page answering 200 with HTML - into an undefined
+  // that travelled: the caller assigned it, the .length that threw did so inside a try and
+  // was logged as "not available", and the NEXT read of .length was outside that try and
+  // took down startup. All the tools disappeared from the client over an optional
+  // resource listing nobody was using.
 
   /**
    * Fetch resource templates from API (dynamic URIs)
@@ -204,7 +212,7 @@ export class M00NApiClient {
     try {
       debug(`Fetching resource templates from ${this.config.apiUrl}/api/mcp/resources/templates`, this.config);
       const response = await this.client.get<{ resourceTemplates: ResourceTemplate[]; count: number }>('/api/mcp/resources/templates');
-      return response.data.resourceTemplates;
+      return response.data.resourceTemplates ?? [];
     } catch (error) {
       throw this.handleError(error, 'fetch resource templates');
     }
@@ -219,7 +227,7 @@ export class M00NApiClient {
       const response = await this.client.get<{ contents: ResourceContent[] }>('/api/mcp/resources/read', {
         params: { uri }
       });
-      return response.data.contents;
+      return response.data.contents ?? [];
     } catch (error) {
       throw this.handleError(error, `read resource: ${uri}`);
     }
@@ -232,7 +240,7 @@ export class M00NApiClient {
     try {
       debug(`Fetching prompts from ${this.config.apiUrl}/api/mcp/prompts`, this.config);
       const response = await this.client.get<{ prompts: Prompt[]; count: number }>('/api/mcp/prompts');
-      return response.data.prompts;
+      return response.data.prompts ?? [];
     } catch (error) {
       throw this.handleError(error, 'fetch prompts');
     }

@@ -88,6 +88,13 @@ export async function createServer(config: Config): Promise<void> {
   } catch (error) {
     log('Resource templates not available', config);
   }
+  // Normalised because a 2xx with an unexpected body assigns undefined here: the
+  // API client returns response.data.staticResources without checking it exists,
+  // the assignment succeeds, and the .length that throws does so INSIDE the try.
+  // This line is outside it, so the TypeError escaped and took down startup -
+  // losing all the tools over an optional resource listing.
+  staticResources = Array.isArray(staticResources) ? staticResources : [];
+  resourceTemplates = Array.isArray(resourceTemplates) ? resourceTemplates : [];
   const hasResources = staticResources.length > 0 || resourceTemplates.length > 0;
 
   // Step 2c: Fetch available prompts
@@ -100,6 +107,8 @@ export async function createServer(config: Config): Promise<void> {
     // Prompts are optional - don't fail if not available
     log('Prompts not available (API may not support them yet)', config);
   }
+
+  prompts = Array.isArray(prompts) ? prompts : [];
 
   // Step 3: Create MCP server with tools, resources, and prompts capabilities
   const server = new Server(

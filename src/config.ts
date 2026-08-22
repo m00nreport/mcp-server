@@ -75,10 +75,29 @@ function parseBooleanEnv(value: string | undefined): boolean {
 /**
  * Parse integer from environment variable with default
  */
-function parseIntEnv(value: string | undefined, defaultValue: number): number {
-  if (!value) return defaultValue;
-  const parsed = parseInt(value, 10);
-  return isNaN(parsed) ? defaultValue : parsed;
+export function parseIntEnv(value: string | undefined, defaultValue: number): number {
+  if (value === undefined || value === null) return defaultValue;
+  const trimmed = String(value).trim();
+  if (trimmed === '') return defaultValue;
+
+  // Strict, because parseInt is not. parseInt("60s", 10) is 60, and isNaN never
+  // sees a problem - so M00N_TIMEOUT_MS=60s became a SIXTY MILLISECOND timeout,
+  // every call failed, and the error message advised raising the timeout. The
+  // unit suffix is the natural thing to write for a value whose name ends in MS.
+  if (!/^[+-]?\d+$/.test(trimmed)) {
+    console.error(
+      `[m00n-mcp] Ignoring "${trimmed}": this setting is a plain number of ` +
+      `milliseconds, with no unit suffix. Using ${defaultValue}.`
+    );
+    return defaultValue;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    console.error(`[m00n-mcp] Ignoring "${trimmed}": must be a positive number. Using ${defaultValue}.`);
+    return defaultValue;
+  }
+  return parsed;
 }
 
 /**
