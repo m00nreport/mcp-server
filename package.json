@@ -1,6 +1,6 @@
 {
   "name": "@m00nsolutions/mcp-server",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "Agentic test management over MCP: an AI assistant can author test cases, plan manual executions, cut releases and read project health over a 50+ tool MCP server for M00N Report, an AI-native test management platform.",
   "type": "module",
   "main": "dist/cli.js",
@@ -50,8 +50,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "axios": "^1.6.0",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "axios": "^1.19.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
