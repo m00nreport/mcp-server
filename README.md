@@ -5,7 +5,7 @@
 [![node](https://img.shields.io/node/v/@m00nsolutions/mcp-server.svg)](https://www.npmjs.com/package/@m00nsolutions/mcp-server)
 [![license](https://img.shields.io/npm/l/@m00nsolutions/mcp-server.svg)](https://github.com/m00nreport/mcp-server/blob/main/LICENSE)
 
-Agentic test management over MCP. This server lets an AI assistant do the work rather than read about it: author test cases, plan and populate manual test executions, link automation back to the cases it covers, cut releases and read project health, through 50+ tools against [M00N Report](https://m00nreport.com), an AI-native test management platform.
+Agentic test management over MCP. This server lets an AI assistant do the work rather than read about it: author test cases, plan and populate manual test executions, link automation back to the cases it covers, cut releases and read project health in [M00N Report](https://m00nreport.com), an AI-native test management platform.
 
 ## Which Install Do I Need?
 
@@ -17,29 +17,23 @@ Agentic test management over MCP. This server lets an AI assistant do the work r
 
 If you are not connecting from claude.ai or claude.com, use this package with an MCP key. That is the rest of this README. For the connector, see the [connector guide](https://m00nreport.com/documentation/mcp/connector).
 
-## Features
-
-- **Write, not just read** - most tools change state: create cases, build executions, record results, cut releases
-- **Manual test cycles end to end** - assemble an execution from suites or collections, then report per-case results
-- **Coverage in both directions** - cases with no automation, and automated tests no case owns
-- **Guided prompts** - flaky analysis, release readiness, regression hunts, and running a manual execution
-- **Scoped to the key** - an MCP key carries exactly the permissions of the account it belongs to, never more
-
 ## Requirements
 
 Node 18 or newer, and any MCP-capable client.
 
 ## Installation
 
-No install step. The client launches it with `npx`, as configured below. To pin a version in a shared or CI environment, replace `@m00nsolutions/mcp-server` with `@m00nsolutions/mcp-server@1.4.5` in the config.
+No install step. The client launches it with `npx`, as configured below.
+
+To pin a version in a shared or CI environment, append one to the package name in `args`, for example `["-y", "@m00nsolutions/mcp-server@1.4.4"]`. `npm view @m00nsolutions/mcp-server versions` lists what is published.
 
 ## Quick Start
 
 ### 1. Get an MCP key
 
-In M00N Report, open **Settings -> MCP Keys** and create a key. It starts with `m00n_mcp_` followed by 48 hex characters.
+In M00N Report, open **Settings -> MCP Keys** and create a key. It starts with `m00n_mcp_` followed by 48 hex characters. This is not the credential the test reporters use; theirs starts with `m00n_` and is refused here.
 
-An MCP key can be permission-scoped. Scoping removes tools from the list the client sees, so a shorter tool list than you expected is a scoping decision, not a fault.
+An MCP key carries exactly the permissions of the account it belongs to, never more, and can be scoped down further. Scoping removes tools from the list the client sees, so a shorter tool list than you expected is a scoping decision, not a fault.
 
 The key goes in your own MCP client config on your machine. Do not put it in a workspace file that lives in a repository.
 
@@ -76,7 +70,7 @@ Where that block goes:
 | Claude Desktop, macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
 | Claude Desktop, Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
 
-For a self-hosted instance, change `M00N_API_URL` to your own root origin, with no `/api` suffix and no trailing slash.
+For a self-hosted instance, point `M00N_API_URL` at your own root origin, with no `/api` suffix. A trailing slash is stripped for you.
 
 ### 3. Confirm the connection
 
@@ -88,7 +82,7 @@ A list of your projects means the server is connected and the key is valid. An e
 
 ## Tools
 
-50+ tools across eight areas. The full list with arguments is at [/documentation/mcp/tools](https://m00nreport.com/documentation/mcp/tools), kept beside the code; the server fetches its own list from your instance at startup, so what your client sees is always what your instance supports.
+Eight areas. The full list with arguments is at [/documentation/mcp/tools](https://m00nreport.com/documentation/mcp/tools), kept beside the code. The server fetches its own list from your instance at startup, so what your client sees is what your instance supported when the client connected.
 
 | Area | What it covers |
 |---|---|
@@ -102,6 +96,14 @@ A list of your projects means the server is connected and the key is valid. An e
 | External links | Attach and remove Jira or Linear tickets on a case |
 
 An execution is a manual test run: assignees, environment, dates, and per-step results captured against a snapshot of each case at the moment it was added.
+
+How many tools your key can see comes from your instance:
+
+```bash
+curl -s -H "X-MCP-Key: $M00N_API_KEY" "$M00N_API_URL/api/mcp/tools" | jq .count
+```
+
+That returned 57 on m00nreport.com with an unscoped key on 2026-08-22.
 
 ## Prompts
 
@@ -125,11 +127,15 @@ Read-only views the client can pull without calling a tool: all projects, projec
 
 | Env var | Required | Default | Description |
 |---|---|---|---|
-| `M00N_API_URL` | yes | | Your M00N Report URL. Root origin, no `/api`, no trailing slash. |
-| `M00N_API_KEY` | yes | | An MCP key (`m00n_mcp_...`) |
-| `M00N_DEBUG` | no | `false` | Log what the server is doing, to stderr |
-| `M00N_TIMEOUT_MS` | no | `30000` | Request timeout in milliseconds |
+| `M00N_API_URL` | yes | | Your M00N Report URL. Root origin, no `/api` suffix. A trailing slash is stripped for you. |
+| `M00N_API_KEY` | yes | | An MCP key (`m00n_mcp_...`). Anything without that prefix is refused before the first request. |
+| `M00N_DEBUG` | no | `false` | Adds per-request detail to stderr, including each tool call's arguments. Startup steps and errors are logged either way. |
+| `M00N_TIMEOUT_MS` | no | `30000` | Request timeout, a bare number of milliseconds. `60s`, `1e4`, `30,000` and `1.5` are rejected with a warning on stderr and the default is used instead. |
 | `M00N_INSECURE_SSL` | no | `false` | Accept a self-signed certificate. Self-hosted instances only. |
+
+The two booleans are on for `true`, `1` or `yes`, in any case. Every other value, `false` and `0` included, leaves them off.
+
+The base URL is `M00N_API_URL` here; the test reporters call the same URL `M00N_SERVER_URL`. All six packages read `M00N_API_KEY`, but theirs is a project API key rather than an MCP key, so one exported shell variable cannot serve both.
 
 ## Self-Hosted
 
@@ -141,37 +147,39 @@ With a self-signed certificate, add `"M00N_INSECURE_SSL": "true"` to the same `e
 
 To `M00N_API_URL` over HTTPS: the tool calls your assistant makes and their arguments. The server is a proxy to your own instance and stores nothing itself.
 
-Every tool call is written to an MCP audit log with a UI in the app, and per-key rate limiting caps a runaway agent. The key is never written to the log, including under `M00N_DEBUG`.
+Every tool call is written to an MCP audit log with a UI in the app, and per-key rate limiting caps a runaway agent. The key is never written to that log, nor to stderr. Under `M00N_DEBUG` the arguments of every tool call are printed to stderr, so treat that output as you would the data itself.
 
 ## Troubleshooting
 
 | Symptom | Cause |
 |---|---|
 | The client shows no M00N Report tools | The config was not reloaded. Restart the client fully, not just the conversation. |
-| `Cannot connect to M00N Report API` | `M00N_API_URL` is wrong or unreachable. Check for a trailing slash or an `/api` suffix. |
-| `Authentication failed: Invalid or expired MCP key` | The key is wrong, revoked, or belongs to another instance. Issue a new one under Settings -> MCP Keys. |
-| `SSL certificate error` | A self-signed certificate on a self-hosted instance. Set `M00N_INSECURE_SSL` to `true`. |
+| `M00N_API_KEY should start with "m00n_mcp_"` | That is a project API key, the kind the test reporters use. MCP keys are separate: Settings -> MCP Keys. |
+| `Authentication failed: Invalid or expired MCP key` | The key is wrong, revoked, or from another instance. Or `M00N_API_URL` carries an `/api` suffix, which makes every request 401 however good the key is. Check the URL first, then issue a new key. |
+| `Cannot connect to M00N Report API at ...` | Nothing is listening at that URL. The instance is down, or the port is closed to you. |
+| `Cannot resolve M00N Report API host` | The hostname does not resolve. A typo, or a private name reached from outside its network. |
+| `Request to M00N Report API timed out` | Raise `M00N_TIMEOUT_MS`, or check the network path. |
+| `SSL certificate error connecting to ...` | A self-signed certificate on a self-hosted instance. Set `M00N_INSECURE_SSL` to `true`. |
+| `Not found during ...` | The rest of the line is the server's own answer and usually names the fix, such as which projects do exist. Read it before changing a setting. |
+| `Rate limit exceeded. Retry after Ns.` | 60 tool calls per minute per key. The message carries the wait. |
 | Fewer tools than expected | The key is permission-scoped, or the instance is older than the package. The tool list comes from your instance. |
-| Requests start failing after heavy use | Per-key rate limiting. Wait, or split work across keys. |
 
-Set `M00N_DEBUG` to `true` for the server's own log; most clients surface a server's stderr in their MCP panel.
+The server logs to stderr with or without `M00N_DEBUG`, and most clients surface it in their MCP panel. Set `M00N_DEBUG` to `true` to add each request and its arguments.
 
-## Example Prompts
+## Known Limitations
 
-> Create a test case for the password reset flow and link it to M00NPROJ-22
-
-> Which tests failed in the last three runs of the checkout suite, and were any of them flaky?
-
-> Build a regression execution from the Payments suite, assign it to me, and tell me what is not covered by automation
-
-> Is release v2.1.0 ready to ship?
+- **The tool list is read once, at startup.** Re-scope a key or upgrade the instance and the client keeps the old list until you restart the client.
+- **`GET /api/health` must be reachable.** It is checked before anything else and a failure stops the server, so a proxy forwarding only `/api/mcp/*` shows no tools at all even though every tool would work.
+- **A key scoped to zero tools does not start.** The server exits rather than connecting with an empty list.
+- **Prompts and resources are optional.** If their listings fail, the server still starts, with the reason on stderr, and the client sees none of them for the whole session.
+- **stdio only.** For an HTTP transport, use the hosted connector.
 
 ## Support
 
-- 📦 [Package on npm](https://www.npmjs.com/package/@m00nsolutions/mcp-server)
-- 📖 [Documentation](https://m00nreport.com/documentation/mcp/quick-start)
-- 🐛 [Report Issues](https://github.com/m00nreport/mcp-server/issues)
-- 💬 [Community Discord](https://discord.gg/hzZvyVWS3Q)
+- [Package on npm](https://www.npmjs.com/package/@m00nsolutions/mcp-server)
+- [Documentation](https://m00nreport.com/documentation/mcp/quick-start)
+- [Report Issues](https://github.com/m00nreport/mcp-server/issues)
+- [Community Discord](https://discord.gg/hzZvyVWS3Q)
 
 ## License
 
