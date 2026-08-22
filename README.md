@@ -3,59 +3,55 @@
 [![npm](https://img.shields.io/npm/v/@m00nsolutions/mcp-server.svg)](https://www.npmjs.com/package/@m00nsolutions/mcp-server)
 [![CI](https://github.com/m00nreport/mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/m00nreport/mcp-server/actions/workflows/ci.yml)
 [![node](https://img.shields.io/node/v/@m00nsolutions/mcp-server.svg)](https://www.npmjs.com/package/@m00nsolutions/mcp-server)
-[![license](https://img.shields.io/npm/l/@m00nsolutions/mcp-server.svg)](LICENSE)
+[![license](https://img.shields.io/npm/l/@m00nsolutions/mcp-server.svg)](https://github.com/m00nreport/mcp-server/blob/main/LICENSE)
 
-Agentic test management over MCP. M00N Report is an AI-native test management platform: manage test cases, manual runs and releases, with real-time automated results and a 50+ tool MCP server.
+Agentic test management over MCP. This server lets an AI assistant do the work rather than read about it: author test cases, plan and populate manual test executions, link automation back to the cases it covers, cut releases and read project health, through 50+ tools against [M00N Report](https://m00nreport.com), an AI-native test management platform.
 
-This server lets an AI assistant do the work, not just read about it: author test cases, plan and populate manual test executions, link automation back to the manual cases it covers, cut releases, and read project health - the same actions a human takes in the app, through **50+ tools**, guided prompts and read-only resources.
-
-**Which transport do I need?**
+## Which Install Do I Need?
 
 | | This npm package (stdio) | Hosted remote connector |
 |---|---|---|
-| How it runs | `npx @m00nsolutions/mcp-server` as a local process | No local process; the MCP client talks to the API directly over HTTP |
-| Auth | `M00N_API_KEY` (an MCP key) | OAuth 2.1 with PKCE, browser consent screen |
-| Clients | Any MCP client - Claude Desktop, Claude Code, Cursor, and others | **claude.ai and claude.com only** |
+| How it runs | `npx @m00nsolutions/mcp-server` as a local process | No local process; the client talks to the API over HTTP |
+| Auth | An MCP key in `M00N_API_KEY` | OAuth 2.1 with PKCE, browser consent screen |
+| Clients | Any MCP client: Claude Code, Claude Desktop, Cursor, and others | **claude.ai and claude.com only** |
 
-If you are not connecting from claude.ai or claude.com, use this package with an MCP key - that is the rest of this README.
+If you are not connecting from claude.ai or claude.com, use this package with an MCP key. That is the rest of this README. For the connector, see the [connector guide](https://m00nreport.com/documentation/mcp/connector).
 
 ## Features
 
-**Author test assets**
-- ✍️ **Write test cases** - `create_test_case` / `update_test_case` accept Markdown, auto-create the folder/suite hierarchy and tags, and can attach a Jira ticket atomically at creation
-- 🗂️ **Organize with folders** - Full folder/suite hierarchy management
-- 🔗 **Link automation to cases** - `link_autotest_to_case` connects an automated test to the manual case it covers
+- **Write, not just read** - most tools change state: create cases, build executions, record results, cut releases
+- **Manual test cycles end to end** - assemble an execution from suites or collections, then report per-case results
+- **Coverage in both directions** - cases with no automation, and automated tests no case owns
+- **Guided prompts** - flaky analysis, release readiness, regression hunts, and running a manual execution
+- **Scoped to the key** - an MCP key carries exactly the permissions of the account it belongs to, never more
 
-**Plan a manual test cycle**
-- 📋 **Build an execution** - `create_execution`, then populate it with `add_collections_to_execution`, `add_suites_to_execution` or `add_cases_to_execution`
-- 📦 **Reusable test collections** - Manage manual test runs and executions
-- 🚀 **Release management** - Track releases with linked test runs
+## Requirements
 
-**Analyze**
-- 📊 **Query test trends** - Pass rates, failing tests, flaky tests over time
-- 📈 **Get launch statistics** - Test run summaries with filtering
-- 🩺 **Project health** - Composite 0-100 health score with prioritized recommendations
+Node 18 or newer, and any MCP-capable client.
 
-**Governed like the rest of the system**
-- 🔗 **External ticket linking** - Bidirectional Jira links + multi-provider support (Linear, GitHub, GitLab, ...)
-- 🔒 **Secure** - Uses your MCP key with your permissions
-- 🏢 **Self-hosted ready** - Works with self-hosted M00N Report instances
-- 🏷️ **Tool annotations** - MCP 2025 spec compliant with safety hints
-- 📖 **Resources** - Read-only data access for summaries and reports
-- 🎯 **Prompts** - Guided workflow templates for common tasks
+## Installation
+
+No install step. The client launches it with `npx`, as configured below. To pin a version in a shared or CI environment, replace `@m00nsolutions/mcp-server` with `@m00nsolutions/mcp-server@1.4.5` in the config.
 
 ## Quick Start
 
-### 1. Get an MCP Key
+### 1. Get an MCP key
 
-1. Log in to M00N Report
-2. Go to **Settings → MCP Keys**
-3. Create a new MCP key
-4. Copy the key (starts with `m00n_mcp_`)
+In M00N Report, open **Settings -> MCP Keys** and create a key. It starts with `m00n_mcp_` followed by 48 hex characters.
 
-### 2. Configure Cursor
+An MCP key can be permission-scoped. Scoping removes tools from the list the client sees, so a shorter tool list than you expected is a scoping decision, not a fault.
 
-Add to your Cursor MCP configuration (`~/.cursor/mcp.json` or workspace `.cursor/mcp.json`):
+The key goes in your own MCP client config on your machine. Do not put it in a workspace file that lives in a repository.
+
+### 2. Connect your client
+
+Claude Code, one line:
+
+```bash
+claude mcp add m00n --env M00N_API_URL=https://m00nreport.com --env M00N_API_KEY=m00n_mcp_... -- npx -y @m00nsolutions/mcp-server
+```
+
+Every other client takes the same JSON block:
 
 ```json
 {
@@ -72,383 +68,111 @@ Add to your Cursor MCP configuration (`~/.cursor/mcp.json` or workspace `.cursor
 }
 ```
 
-### 3. Configure Claude Desktop
+Where that block goes:
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+| Client | Config file |
+|---|---|
+| Cursor | `~/.cursor/mcp.json` |
+| Claude Desktop, macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Desktop, Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
 
-```json
-{
-  "mcpServers": {
-    "m00n": {
-      "command": "npx",
-      "args": ["-y", "@m00nsolutions/mcp-server"],
-      "env": {
-        "M00N_API_URL": "https://m00nreport.com",
-        "M00N_API_KEY": "m00n_mcp_your_key_here"
-      }
-    }
-  }
-}
-```
+For a self-hosted instance, change `M00N_API_URL` to your own root origin, with no `/api` suffix and no trailing slash.
 
-## Available Resources (8)
+### 3. Confirm the connection
 
-Resources provide **read-only data** that AI clients can access directly without tool calls. They're perfect for summaries, reports, and structured data.
+Restart the client, then ask it:
 
-| Resource URI | Name | Format | Description |
-|--------------|------|--------|-------------|
-| `m00n://projects` | All Projects | JSON | List of all accessible projects with counts |
-| `m00n://projects/{projectId}/summary` | Project Health | JSON | Pass rates, flaky count, latest run info |
-| `m00n://projects/{projectId}/flaky-tests` | Flaky Tests | Markdown | Flaky tests report with patterns |
-| `m00n://projects/{projectId}/failing-tests` | Failing Tests | Markdown | Currently failing tests from latest run |
-| `m00n://projects/{projectId}/folder-tree` | Folder Tree | JSON | Hierarchical folder/suite structure |
-| `m00n://launches/{launchId}/report` | Launch Report | Markdown | Full test run report with failures |
-| `m00n://cases/{caseId}/content` | Test Case | Markdown | Test case with steps and metadata |
-| `m00n://releases/{releaseId}/summary` | Release Summary | JSON | Release health with test run stats |
+> List my M00N Report projects
 
-**Example prompts using resources:**
-- "Show me the project health summary"
-- "What's in the flaky tests report for project X?"
-- "Get the full launch report for the latest run"
-- "Show me the test case TC-001 content"
+A list of your projects means the server is connected and the key is valid. An error, or the assistant saying it has no such tool, means it is not; see [Troubleshooting](#troubleshooting).
 
----
+## Tools
 
-## Available Prompts (6)
+50+ tools across eight areas. The full list with arguments is at [/documentation/mcp/tools](https://m00nreport.com/documentation/mcp/tools), kept beside the code; the server fetches its own list from your instance at startup, so what your client sees is always what your instance supports.
 
-Prompts are **guided workflow templates** that provide context and instructions for common tasks. They help AI assistants perform complex multi-step operations effectively.
+| Area | What it covers |
+|---|---|
+| Projects and analytics | Projects, launch trends and statistics, per-test history, search across automated tests |
+| Test cases | Create, read, update, move, delete, bulk edit, and link an automated test to the case it covers |
+| Folders and suites | The folder and suite hierarchy, plus per-folder statistics |
+| Test collections | Reusable named case sets that drop into any execution |
+| Manual executions | Build an execution from suites, collections or individual cases, then record per-case results |
+| Releases | Create and manage releases, and attach or detach the launches that belong to them |
+| Health and coverage | A composite health check, coverage gaps in both directions, case suggestions, feature scan, report export |
+| External links | Attach and remove Jira or Linear tickets on a case |
 
-| Prompt | Description |
-|--------|-------------|
-| `analyze_flaky_tests` | Investigate flaky tests, identify patterns, and suggest fixes |
-| `debug_test_failure` | Debug a test failure by analyzing errors and history |
-| `release_readiness` | Assess if a release is ready to ship |
-| `generate_test_cases` | Generate test cases from a feature description |
-| `weekly_health_report` | Generate a comprehensive weekly test health report |
-| `investigate_regression` | Investigate when and why a test started failing |
-
-### Prompt Arguments
-
-**analyze_flaky_tests**
-- `projectId` (required) - Project UUID to analyze
-- `days` (optional) - Lookback period in days (default: 14)
-
-**debug_test_failure**
-- `launchId` (required) - Launch/run UUID containing the failure
-- `testSearch` (optional) - Test name or path to search for
-
-**release_readiness**
-- `releaseId` (required) - Release UUID to assess
-
-**generate_test_cases**
-- `featureDescription` (required) - Description of the feature to test
-- `folderId` (required) - Target folder UUID
-- `testType` (optional) - functional, edge-cases, negative, security, performance
-
-**weekly_health_report**
-- `projectId` (required) - Project UUID to report on
-
-**investigate_regression**
-- `projectId` (required) - Project UUID
-- `testTitlePath` (required) - Full or partial test title path
-
-**Example usage:**
-- "Use the analyze_flaky_tests prompt for project abc-123"
-- "Help me debug the test failures in run xyz-456"
-- "Is release v2.1.0 ready to ship?"
-- "Generate test cases for the user registration feature"
-
----
-
-## Available Tools (50)
-
-All tools include **MCP 2025 annotations** to help AI clients understand tool safety characteristics.
-
-### Analytics & AI Tools (Read-Only)
-| Tool | Description |
-|------|-------------|
-| `list_projects` | List all accessible projects |
-| `get_launches_trends` | Get pass rate, flaky, failing test trends |
-| `get_launches_statistics` | Get test run summaries with filtering |
-| `get_launch_tests` | Get all tests from a specific run |
-| `get_test_history` | Get execution history for a test |
-| `search_tests` | Search tests by title or file path |
-| `run_health_check` | 🆕 Get overall project health score (0-100) with recommendations |
-| `get_coverage_gaps` | 🆕 Identify test cases without linked autotests |
-| `suggest_test_cases` | Project-aware scaffolding from a feature description - pattern matching over templates, not LLM generation. Your assistant writes the real case content; `create_test_case` persists it |
-| `export_report` | 🆕 Generate markdown reports (summary, failures, trends, release) |
-| `get_feature_scan` | 🆕 Feature health scan by Jira key - coverage stats, linked cases, autotest run trends (aggregates child issues 2 levels deep) |
-
-### Bulk Operations
-| Tool | Annotations | Description |
-|------|-------------|-------------|
-| `bulk_update_cases` | ✏️ update | 🆕 Update multiple test cases at once (status, priority, tags) |
-
-### Test Case Management
-| Tool | Annotations | Description |
-|------|-------------|-------------|
-| `list_test_cases` | 🔒 read-only | List test cases with filtering |
-| `get_test_case` | 🔒 read-only | Get full test case details |
-| `get_case_execution_history` | 🔒 read-only | Manual execution history for a case across runs, with pass-rate summary |
-| `create_test_case` | ✏️ create | Create a new test case (accepts optional `externalLinks[]` to atomically attach Jira / Linear / GitHub tickets at creation time) |
-| `update_test_case` | ✏️ update | Update an existing test case |
-| `delete_test_case` | ⚠️ destructive | Archive a test case |
-| `move_test_case` | ✏️ update | Move to different folder |
-| `link_autotest_to_case` | 🔗 link | Link automated test to case |
-
-### External Ticket Links 🆕
-Link any M00N entity (case, execution, release, launch) to an external ticket in Jira, Linear, GitHub, GitLab, or any other system. For Jira, the flow is **bidirectional**: M00N fetches the issue metadata and pushes a Remote Link back to the Jira issue page, mirroring the manual Jira-panel link experience.
-
-| Tool | Annotations | Description |
-|------|-------------|-------------|
-| `add_external_link` | 🔗 link | Link a case / execution / release / launch to an external ticket. For Jira: pass the issue key (e.g. `PROJ-123`) or a full `/browse/` URL as `externalId`; metadata + URL are fetched automatically and a Remote Link is pushed to Jira. For other providers: `externalUrl` is required. Idempotent. |
-| `list_external_links` | 🔒 read-only | List external links attached to an entity, optionally filtered by provider |
-| `remove_external_link` | ⚠️ destructive | Remove a link by its UUID. For Jira-backed links, also deletes the corresponding Remote Link on the Jira side. |
-
-### Folder Management
-| Tool | Annotations | Description |
-|------|-------------|-------------|
-| `list_folders` | 🔒 read-only | List all folders/suites |
-| `get_folder` | 🔒 read-only | Get folder details |
-| `create_folder` | ✏️ create | Create a folder (a branch container that holds folders and suites) |
-| `create_suite` | ✏️ create | Create a suite (a leaf container that holds test cases) inside a folder |
-| `update_folder` | ✏️ update | Rename or move folder |
-| `delete_folder` | ⚠️ destructive | Archive folder and contents |
-| `get_folder_statistics` | 🔒 read-only | Get folder statistics |
-
-### Manual Test Executions
 An execution is a manual test run: assignees, environment, dates, and per-step results captured against a snapshot of each case at the moment it was added.
 
-| Tool | Annotations | Description |
-|------|-------------|-------------|
-| `list_executions` | 🔒 read-only | List manual test executions with status and progress |
-| `get_execution` | 🔒 read-only | Get an execution with its cases, assignees and per-case results |
-| `create_execution` | ✏️ create | Create a manual test execution |
-| `add_collections_to_execution` | 🔗 link | Add every case in one or more test collections to an execution |
-| `add_suites_to_execution` | 🔗 link | Add every case in one or more suites to an execution |
-| `add_cases_to_execution` | 🔗 link | Add individually chosen cases to an execution as a named group |
+## Prompts
 
-### Test Collections (Reusable Case Sets)
-| Tool | Annotations | Description |
-|------|-------------|-------------|
-| `list_test_collections` | 🔒 read-only | List test collections |
-| `get_test_collection` | 🔒 read-only | Get collection with execution status |
-| `create_test_collection` | ✏️ create | Create a reusable test collection |
-| `update_test_collection` | ✏️ update | Update collection metadata |
-| `add_cases_to_collection` | 🔗 link | Add cases to collection |
-| `remove_cases_from_collection` | ⚠️ remove | Remove cases from collection |
-| `delete_test_collection` | ⚠️ destructive | Archive collection |
+Guided multi-step workflows the client can offer by name. Each takes a single optional `project` argument, a name or a UUID; omit it and the server picks the project when only one is in scope.
 
-### Release Management
-| Tool | Annotations | Description |
-|------|-------------|-------------|
-| `list_releases` | 🔒 read-only | List releases with stats |
-| `get_release` | 🔒 read-only | Get release with test runs |
-| `create_release` | ✏️ create | Create a new release |
-| `update_release` | ✏️ update | Update release metadata |
-| `delete_release` | ⚠️ destructive | Archive release |
-| `link_launches_to_release` | 🔗 link | Link automated runs to release |
-| `unlink_launch_from_release` | ⚠️ remove | Remove launch from release |
+| Prompt | What it does |
+|---|---|
+| `analyze_flaky_tests` | Find tests that pass and fail without a code change, and rank them |
+| `debug_test_failure` | Work a single failure back to a cause from its history and traces |
+| `release_readiness` | Judge whether a release is safe to ship |
+| `generate_test_cases` | Draft manual cases for an area that has none |
+| `weekly_health_report` | Summarise the week across projects |
+| `investigate_regression` | Find what changed between a passing and a failing run |
+| `run_manual_execution` | Take a manual test cycle from assembly to per-case results |
 
-## Tool Annotations
+## Resources
 
-All tools include MCP 2025 spec-compliant annotations that help AI assistants understand tool behavior:
+Read-only views the client can pull without calling a tool: all projects, project health summary, flaky tests report, currently failing tests, folder structure, launch report, test case content, release summary.
 
-| Annotation | Meaning |
-|------------|---------|
-| `readOnlyHint: true` | 🔒 Tool only reads data, no side effects |
-| `destructiveHint: true` | ⚠️ Tool may delete or archive data |
-| `idempotentHint: true` | 🔄 Safe to call repeatedly with same args |
-| `openWorldHint: false` | 📦 Tool operates only on known entities |
+## Configuration
 
-**Example annotation:**
-```json
-{
-  "name": "delete_test_case",
-  "annotations": {
-    "readOnlyHint": false,
-    "destructiveHint": true,
-    "idempotentHint": true,
-    "openWorldHint": false
-  }
-}
-```
+| Env var | Required | Default | Description |
+|---|---|---|---|
+| `M00N_API_URL` | yes | | Your M00N Report URL. Root origin, no `/api`, no trailing slash. |
+| `M00N_API_KEY` | yes | | An MCP key (`m00n_mcp_...`) |
+| `M00N_DEBUG` | no | `false` | Log what the server is doing, to stderr |
+| `M00N_TIMEOUT_MS` | no | `30000` | Request timeout in milliseconds |
+| `M00N_INSECURE_SSL` | no | `false` | Accept a self-signed certificate. Self-hosted instances only. |
 
-AI assistants use these hints to:
-- Warn users before executing destructive operations
-- Batch read-only operations without confirmation
-- Safely retry idempotent operations on failure
+## Self-Hosted
 
-## Environment Variables
+Point `M00N_API_URL` at your own instance and issue the MCP key from that instance. Everything else is identical, which matters when the reason you self-host is that test data cannot leave your network.
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `M00N_API_URL` | ✅ | - | M00N Report API URL (e.g., `https://m00nreport.com`) |
-| `M00N_API_KEY` | ✅ | - | MCP key from Settings → MCP Keys |
-| `M00N_INSECURE_SSL` | | `false` | Skip SSL verification (for self-signed certs) |
-| `M00N_DEBUG` | | `false` | Enable verbose logging |
-| `M00N_TIMEOUT_MS` | | `30000` | Request timeout in milliseconds |
+With a self-signed certificate, add `"M00N_INSECURE_SSL": "true"` to the same `env` block. Full notes: [/documentation/mcp/self-hosted](https://m00nreport.com/documentation/mcp/self-hosted).
 
-## Self-Hosted Installation
+## What Gets Sent
 
-### Standard Installation
+To `M00N_API_URL` over HTTPS: the tool calls your assistant makes and their arguments. The server is a proxy to your own instance and stores nothing itself.
 
-Works with any self-hosted M00N Report instance:
-
-```json
-{
-  "mcpServers": {
-    "m00n": {
-      "command": "npx",
-      "args": ["-y", "@m00nsolutions/mcp-server"],
-      "env": {
-        "M00N_API_URL": "https://your-m00n-instance.company.com",
-        "M00N_API_KEY": "m00n_mcp_your_key_here"
-      }
-    }
-  }
-}
-```
-
-### Self-Signed Certificates
-
-For self-hosted instances with self-signed SSL certificates:
-
-```json
-{
-  "mcpServers": {
-    "m00n": {
-      "command": "npx",
-      "args": ["-y", "@m00nsolutions/mcp-server"],
-      "env": {
-        "M00N_API_URL": "https://your-m00n-instance.company.com",
-        "M00N_API_KEY": "m00n_mcp_your_key_here",
-        "M00N_INSECURE_SSL": "true"
-      }
-    }
-  }
-}
-```
-
-⚠️ **Security Note:** Only use `M00N_INSECURE_SSL=true` for trusted internal servers with self-signed certificates.
-
-### Offline/Air-Gapped Installation
-
-For environments without internet access:
-
-1. On a machine with internet, create a tarball:
-   ```bash
-   npm pack @m00nsolutions/mcp-server
-   ```
-
-2. Transfer the resulting `m00nsolutions-mcp-server-<version>.tgz` to the air-gapped machine
-
-3. Install from tarball:
-   ```bash
-   npm install -g ./m00nsolutions-mcp-server-<version>.tgz
-   ```
-
-4. Configure to use the global installation:
-   ```json
-   {
-     "mcpServers": {
-       "m00n": {
-         "command": "m00n-mcp",
-         "env": {
-           "M00N_API_URL": "https://your-m00n-instance.company.com",
-           "M00N_API_KEY": "m00n_mcp_your_key_here"
-         }
-       }
-     }
-   }
-   ```
+Every tool call is written to an MCP audit log with a UI in the app, and per-key rate limiting caps a runaway agent. The key is never written to the log, including under `M00N_DEBUG`.
 
 ## Troubleshooting
 
-### "Cannot connect to M00N Report API"
+| Symptom | Cause |
+|---|---|
+| The client shows no M00N Report tools | The config was not reloaded. Restart the client fully, not just the conversation. |
+| `Cannot connect to M00N Report API` | `M00N_API_URL` is wrong or unreachable. Check for a trailing slash or an `/api` suffix. |
+| `Authentication failed: Invalid or expired MCP key` | The key is wrong, revoked, or belongs to another instance. Issue a new one under Settings -> MCP Keys. |
+| `SSL certificate error` | A self-signed certificate on a self-hosted instance. Set `M00N_INSECURE_SSL` to `true`. |
+| Fewer tools than expected | The key is permission-scoped, or the instance is older than the package. The tool list comes from your instance. |
+| Requests start failing after heavy use | Per-key rate limiting. Wait, or split work across keys. |
 
-- Verify `M00N_API_URL` is correct and accessible
-- Check network connectivity to the M00N Report server
-- For self-hosted: ensure the API port (default 4000) is accessible
-
-### "Authentication failed: Invalid or expired MCP key"
-
-- Verify `M00N_API_KEY` starts with `m00n_mcp_`
-- Check the key hasn't been revoked in Settings → MCP Keys
-- Ensure you're using an MCP key, not a project API key
-
-### "SSL certificate error"
-
-- For self-signed certificates, set `M00N_INSECURE_SSL=true`
-- Verify the certificate chain if using a private CA
-
-### "No tools available"
-
-- Check your MCP key has appropriate permissions
-- Verify your user account has access to at least one project
-
-### Enable Debug Logging
-
-Set `M00N_DEBUG=true` to see detailed logs:
-
-```json
-{
-  "env": {
-    "M00N_API_URL": "...",
-    "M00N_API_KEY": "...",
-    "M00N_DEBUG": "true"
-  }
-}
-```
+Set `M00N_DEBUG` to `true` for the server's own log; most clients surface a server's stderr in their MCP panel.
 
 ## Example Prompts
 
-Once configured, try these prompts in Claude or Cursor:
+> Create a test case for the password reset flow and link it to M00NPROJ-22
 
-### Analytics & Health
-- "List my M00N Report projects"
-- "Show me the test pass rate trends for the last 30 days"
-- "What are the top 10 flaky tests in project X?"
-- "Get me the failed test runs from this week"
-- "Which tests are taking the longest to run?"
-- "Run a health check on my project"
-- "What's the overall health score for project X?"
+> Which tests failed in the last three runs of the checkout suite, and were any of them flaky?
 
-### Coverage Analysis
-- "Show me the test coverage gaps in my project"
-- "Which test cases don't have automated tests?"
-- "Which folders have low automation coverage?"
+> Build a regression execution from the Payments suite, assign it to me, and tell me what is not covered by automation
 
-### AI-Assisted
-- "Suggest test cases for the user login feature"
-- "Generate test case ideas for: users can upload profile pictures up to 5MB"
-- "Create edge case tests for the payment checkout flow"
-
-### Bulk Operations
-- "Update all test cases TC-001, TC-002, TC-003 to status Approved"
-- "Add the 'regression' tag to all selected test cases"
-- "Set priority to High for these 5 test cases"
-
-### Reporting
-- "Generate a summary report for my project"
-- "Export a failures report for the last 7 days"
-- "Show me the trends report in markdown format"
-- "Generate a release status report for release v2.1.0"
-
-### External Ticket Links
-- "Link test case TC-42 to Jira issue PROJ-123"
-- "Create a test case for the password reset flow and link it to M00NPROJ-22"
-- "Show me all Jira tickets linked to test case TC-42"
-- "Unlink ticket PROJ-456 from test case TC-42"
-- "Create a test case 'Login with valid credentials' and link it to Linear ENG-789"
+> Is release v2.1.0 ready to ship?
 
 ## Support
 
-- **Package on npm:** https://www.npmjs.com/package/@m00nsolutions/mcp-server
-- **Documentation:** https://m00nreport.com/documentation/getting-started
-- **Issues:** https://github.com/m00nreport/mcp-server/issues
-- **Email:** support@m00nreport.com
+- 📦 [Package on npm](https://www.npmjs.com/package/@m00nsolutions/mcp-server)
+- 📖 [Documentation](https://m00nreport.com/documentation/mcp/quick-start)
+- 🐛 [Report Issues](https://github.com/m00nreport/mcp-server/issues)
+- 💬 [Community Discord](https://discord.gg/hzZvyVWS3Q)
 
 ## License
 
-MIT
+MIT License. See [LICENSE](https://github.com/m00nreport/mcp-server/blob/main/LICENSE).
