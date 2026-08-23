@@ -105,7 +105,8 @@ How many tools your key can see comes from your instance:
 curl -s -H "X-MCP-Key: $M00N_API_KEY" "$M00N_API_URL/api/mcp/tools" | jq .count
 ```
 
-That returned 57 on m00nreport.com with an unscoped key on 2026-08-22.
+A scoped key sees fewer. No number is quoted here on purpose: the surface changes with the
+release, and a figure in a README is the one place nobody remembers to update.
 
 ## Prompts
 

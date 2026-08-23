@@ -34,7 +34,7 @@
     },
     {
       "name": "add_cases_to_execution",
-      "description": "Add a named group of individual test cases to an execution (source_type cases). caseIds are NUMERIC. Cases must belong to the execution's project; invalid/cross-project ids are skipped. An empty result creates no group. Returns {added, skipped, groupId}.",
+      "description": "Add individual test cases to a Manual Test Execution as a new named group. Unlike suites and Collections, loose cases have no identity of their own, so name is required and the group it creates is what appears in the execution; the call returns its groupId. caseIds are NUMERIC ids, never TC-numbers. Use add_suites_to_execution or add_collections_to_execution when the cases are already gathered into one of those. Cases from another project are skipped, and an empty result creates no group. Returns {added, skipped, groupId}.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -74,7 +74,7 @@
     },
     {
       "name": "add_collections_to_execution",
-      "description": "Add one or more Test Collections (manual runs) to an execution. Each is snapshotted in as a test run. Collections must belong to the execution's project; others are skipped. Idempotent: collections already present in the execution are skipped (not duplicated). Returns {added, skipped}.",
+      "description": "Add whole Test Collections to a Manual Test Execution. Each is snapshotted in and keeps its own identity inside the execution. Pick this when the work is already gathered into a Collection. Use add_suites_to_execution to take the current cases of a suite instead, and add_cases_to_execution for loose cases, which need a new named group. Collections from another project are skipped, as are shadow collections, and one already in the execution is skipped rather than snapshotted twice. Returns {added, skipped}.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -97,7 +97,7 @@
             },
             "minItems": 1,
             "maxItems": 100,
-            "description": "Collection (manual run) UUIDs"
+            "description": "Test Collection UUIDs"
           }
         },
         "required": [
@@ -108,7 +108,7 @@
     },
     {
       "name": "add_external_link",
-      "description": "Link any test entity (case/execution/release/launch) to an external ticket in Jira, Linear, GitHub, GitLab, or any other system. Idempotent: linking the same external_id twice returns the existing link.",
+      "description": "Link any test entity (case/execution/release/launch) to an external ticket in Jira, Linear, GitHub, GitLab, or any other system. Returns the link record: id (the link UUID that remove_external_link takes), provider, externalId, externalUrl, externalTitle, externalStatus, linkType, providerMetadata, createdAt. Idempotent: the same provider plus externalId on the same entity refreshes the stored URL and title and returns that link instead of adding a duplicate. Provider jira has a side effect: title and canonical URL are read from the Jira API, and when the organization has remote links enabled a Remote Link is pushed back onto the Jira issue, so a failure there comes back as remoteLinkWarning while the local link still stands. Call list_external_links to see what an entity is already linked to and to get link ids, and remove_external_link to delete one by its link UUID.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -172,7 +172,7 @@
     },
     {
       "name": "add_suites_to_execution",
-      "description": "Add one or more Suites (folders of type suite) to an execution. Each suite's current cases are snapshotted in. Suites must belong to the execution's project; others are skipped. Idempotent: suites already present in the execution are skipped (not duplicated). Returns {added, skipped}.",
+      "description": "Add whole Suites to a Manual Test Execution. The cases each suite holds are snapshotted in as they stand now, and the suite keeps its own identity inside the execution. Pick this when the work is organised by suite. Use add_collections_to_execution when it is already gathered into a Test Collection, and add_cases_to_execution for loose cases, which need a new named group instead. Suites from another project are skipped, and a suite already in the execution is skipped rather than snapshotted twice. Returns {added, skipped}.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -262,7 +262,7 @@
     },
     {
       "name": "create_execution",
-      "description": "Create a Manual Test Execution (the top-level container shown on the Executions page) that aggregates collections/suites/case-groups. NOT the same as a Test Collection: use create_test_collection for a single manual run; use this to assemble an execution. After creating, use add_collections_to_execution / add_suites_to_execution / add_cases_to_execution to populate it. Returns the new execution id.",
+      "description": "Create a Manual Test Execution (the top-level container shown on the Executions page) that aggregates collections/suites/case-groups. NOT the same as a Test Collection: use create_test_collection for a single Test Collection; use this to assemble an execution. After creating, use add_collections_to_execution / add_suites_to_execution / add_cases_to_execution to populate it. Returns the new execution id.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -328,7 +328,7 @@
     },
     {
       "name": "create_folder",
-      "description": "Create a new folder or suite in a project. Folders can contain other folders and suites; suites are leaf nodes for test cases. IMPORTANT: Omit \"type\" to use smart defaults (folder at root, suite when nested). To create a suite specifically, you can also use the create_suite alias.",
+      "description": "Create a folder or a suite in a project. Use type \"suite\" for a leaf that holds test cases, and \"folder\" for a container that holds other folders and suites. Omitting type gives \"folder\" at the root and \"suite\" when nested, which is usually what you want. Suites cannot be parents, so a suite always needs parentId. Returns the new folder id, its type, and its path. To read an existing one use get_folder; to list them use list_folders.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -371,7 +371,7 @@
     },
     {
       "name": "create_release",
-      "description": "Create a new release in a project. Releases track versions and aggregate manual and automated test results. Omit status to default to \"planned\".",
+      "description": "Create a new release in a project. Releases track versions and aggregate manual and automated test results. projectId comes from list_projects. Omit status to default to \"planned\". Returns the created release with id, name, version, description, status, startDate, endDate, projectId, projectName, createdAt and updatedAt; keep the id, it is what the other release tools take. Not idempotent - calling twice with the same name creates two separate releases, so check list_releases first. When the release already exists and only its name, version, dates or status should change, use update_release instead. The new release starts empty and nothing else is modified: attach automated launches with link_launches_to_release, and attach manual executions from the execution side via the releaseIds argument of create_execution or update_execution.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -426,42 +426,6 @@
         "required": [
           "projectId",
           "name"
-        ]
-      }
-    },
-    {
-      "name": "create_suite",
-      "description": "Create a test suite (a leaf node that holds test cases) inside a folder. This is a convenience alias for create_folder with type=\"suite\". Use this when the user asks to \"create a suite\". Suites cannot live at the root level, so parentId (a folder UUID) is required.",
-      "annotations": {
-        "readOnlyHint": false,
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false
-      },
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "projectId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Project UUID to create the suite in"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "description": "Suite name"
-          },
-          "parentId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Parent folder UUID the suite will live inside. Required - suites cannot be created at the root level."
-          }
-        },
-        "required": [
-          "projectId",
-          "name",
-          "parentId"
         ]
       }
     },
@@ -598,7 +562,7 @@
     },
     {
       "name": "create_test_collection",
-      "description": "Create a new test collection (a single manual run) and optionally add test cases to it. This is one manual run, NOT the top-level Executions-page container - use create_execution for that (an execution can then include this collection via add_collections_to_execution). Returns the created collection with count of added tests. Omit priority to default to \"medium\".",
+      "description": "Create a Test Collection and optionally add test cases to it. This is one Test Collection, NOT the top-level Executions-page container - use create_execution for that (an execution can then include this collection via add_collections_to_execution). Returns the created collection with count of added tests. Omit priority to default to \"medium\".",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -668,7 +632,7 @@
     },
     {
       "name": "delete_execution",
-      "description": "Soft-delete an entire Manual Test Execution (and unlink any manual runs that pointed to it). Reversible only via support/DB - use with care. To remove just one source group instead, use remove_source_from_execution. Returns { deleted: true }.",
+      "description": "Soft-delete an entire Manual Test Execution (and unlink any Test Collections that pointed to it). Reversible only via support/DB - use with care. To remove just one source group instead, use remove_source_from_execution. Returns { deleted: true }.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true,
@@ -714,7 +678,7 @@
     },
     {
       "name": "delete_release",
-      "description": "Soft delete (archive) a release. The release can be restored via the UI. All linked test runs and launches are preserved.",
+      "description": "Soft delete (archive) a release. The release can be restored via the UI. All linked Test Collections and launches are preserved.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true,
@@ -837,7 +801,7 @@
     },
     {
       "name": "get_case_execution_history",
-      "description": "Get manual execution history for a test case across all test runs (both standalone executions and release test runs). Returns pass rate and execution timeline.",
+      "description": "Get manual execution history for one test case across every Manual Test Execution and release it appeared in, newest first. Returns the case identity (caseId, caseNumber, displayId, title), a summary (totalExecutions, executedCount, passed, failed, blocked, notExecuted, passRate) and executions[] of { id, runId, runName, status, executedBy, executedAt, notes, source }, each row carrying the release id/name/version or the execution id/name it came from. Read-only, changes nothing. Manual results only: use get_test_history for the pass/fail timeline of an AUTOMATED test across CI launches, and get_execution_cases to list every case inside ONE execution rather than one case across many. caseId is the internal numeric id from list_test_cases or get_test_case, never a TC-N number; the project is derived from the case. There is no offset paging - days (default 30, max 365) and limit (default 20, max 100) bound the window and the row count.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -873,7 +837,7 @@
     },
     {
       "name": "get_coverage_gaps",
-      "description": "Identify test coverage gaps in a project. Shows test cases without linked autotests, folders with low automation rates, and (reverse gap) autotests seen in the most recent launches that are not linked to any test case. Useful for test planning and coverage improvement.",
+      "description": "Identify test coverage gaps across a whole project. Returns summary (totalCases, linkedCases, unlinkedCases, automationRate), foldersWithLowCoverage (folderId, name, caseCount, linkedCount, automationRate) for folders under automationThreshold, unlinkedCases (caseId, displayId, title, status, priority, folderName) for cases with no linked autotest, and the reverse gap unlinkedAutotests - autotests seen in the most recent launches that are linked to no case. Read-only, nothing is written; close a gap afterwards with link_autotest_to_case. Pick this when the question is which cases or folders lack automation project-wide. Prefer get_feature_scan when the scope is a single Jira issue and Jira is connected, run_health_check when you want one scored assessment in which coverage is only one dimension, search_tests when you already know the autotest and want its status, and suggest_test_cases when the gap is a case that does not exist yet rather than a missing link. projectId comes from list_projects.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1014,7 +978,7 @@
     },
     {
       "name": "get_folder",
-      "description": "Get a single folder with details including path, case count, and optionally statistics and recent cases.",
+      "description": "Get one folder or suite by id. Returns its name, type, path, parent, project, and case count. Set includeStats for the statistics that used to have their own tool: automation rate, status and priority breakdown, tag usage, and time-based metrics, computed over the folder and everything nested under it, returned under \"statistics\". Set includeCases for the most recent cases in it, capped by casesLimit. Use list_folders to see the tree or to find an id; use this when you already have one id and want its detail.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1053,31 +1017,8 @@
       }
     },
     {
-      "name": "get_folder_statistics",
-      "description": "Get detailed statistics for a folder including nested folders. Returns automation rate, status/priority breakdown, tag usage, and time-based metrics.",
-      "annotations": {
-        "readOnlyHint": true,
-        "destructiveHint": false,
-        "idempotentHint": true,
-        "openWorldHint": false
-      },
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "folderId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Folder UUID to get statistics for. Obtain from list_folders."
-          }
-        },
-        "required": [
-          "folderId"
-        ]
-      }
-    },
-    {
       "name": "get_launch_tests",
-      "description": "Get all tests from a specific launch/run with detailed results. Includes error messages and stack traces for failed tests. For each failed test that has artifacts, the response also includes an `attachments` array where each item is `{ id, name, contentType, size, url }`. The `url` is a fully-qualified URL; if it is an API URL, fetch it with the same `X-MCP-Key` header you use for this MCP server (presigned storage URLs need no header) to download screenshots, traces, videos, and source files when investigating failures.",
+      "description": "Get every test inside one launch, with results, error messages and stack traces for the failures. Use this once you have a launch id, which get_launches_statistics gives you; use get_test_history to follow one test across launches instead. For each failed test that has artifacts the response carries an `attachments` array of `{ id, name, contentType, size, url }`. The `url` is fully qualified: if it is an API URL, fetch it with the same `X-MCP-Key` header you use for this server, while presigned storage URLs need no header. That is how you reach screenshots, traces, videos and source files when investigating a failure.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1137,7 +1078,7 @@
     },
     {
       "name": "get_launches_statistics",
-      "description": "Get a list of launches (test runs) with aggregated statistics for a project.",
+      "description": "List the launches of a project, newest first, each with its own pass, fail, skip and duration figures. This is the paginated list: use limit, offset and search to page through individual launches, and statuses or tags to narrow which ones come back. Reach for get_launches_trends instead when the question is about the project over time rather than about particular launches, and get_launch_tests when you already have one launch and want the tests inside it. Returns launches[] with totals and a total count.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1204,7 +1145,7 @@
     },
     {
       "name": "get_launches_trends",
-      "description": "Get comprehensive trend data for a project including pass rates, failing tests, flaky tests, duration trends, and more.",
+      "description": "Aggregate a project over a window: pass rate over time, the tests that fail most, the flaky ones, duration trends and the slowest tests. This answers questions about the project, not about any one launch, so it returns series and top-N lists rather than rows. Use include[] to compute only the sections you need, days to set the window and topN to size the lists. Reach for get_launches_statistics instead when you want to page through individual launches, and get_launch_tests when you already have one launch.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1291,7 +1232,7 @@
     },
     {
       "name": "get_release",
-      "description": "Get a single release with full details including aggregate stats, optionally with linked manual executions and automated launches.",
+      "description": "Get one release by releaseId with full detail: name, version, status, projectId, projectName, dates, and a stats rollup for linked manual executions (count, total, passed, failed, blocked, inTesting, notExecuted) and linked automated launches (count, total, passed, failed, skipped). By default it also returns the linkedExecutions and launches arrays, each entry with its own name, status, dates and per-item stats; set includeLinkedExecutions or includeLaunches to false to drop an array and keep the response small, since the stats rollup comes back either way. Use list_releases instead to browse, search or filter the releases in a project and to obtain releaseId; it returns the same rollup per release but never those two arrays, so call get_release once the release of interest is known. Read only, nothing is modified. An archived release still resolves here, unlike list_releases which hides it unless includeDeleted is set; the deleted flag in the response says which it is.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1324,7 +1265,7 @@
     },
     {
       "name": "get_test_case",
-      "description": "Get a single test case with full details including steps, custom fields, dependencies, shareUrl for sharing, and optionally linked autotests and edit history.",
+      "description": "Get one manual test case in full: id, caseNumber, displayId, title, description, status, priority, tags, ordered steps, folderId/folderName, projectId/projectName, dependsOn, customFields, createdAt/updatedAt and a shareUrl for pasting into Slack or Jira. Optional flags add linkedAutotests (includeLinkedAutotests, default true), recentAutotestExecutions from CI runs (includeRecentExecutions) and an edit-history audit trail (includeHistory). Read-only; nothing is modified. caseId is the internal numeric id from list_test_cases / create_test_case, not a user-facing TC-N; the project is derived from the case. Choose list_test_cases instead to browse, filter or count many cases, or to turn a TC-N into an id - it returns summaries without steps, so use it to pick the case and this tool to read it. Choose get_case_execution_history instead for how the case has fared in Manual Test Executions over time (pass rate plus an execution timeline); includeRecentExecutions here reports automated CI results only. search_tests covers automated tests, which are separate records from manual cases.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1361,7 +1302,7 @@
     },
     {
       "name": "get_test_collection",
-      "description": "Get a test collection with all test cases and their execution status. Returns collection metadata plus test execution overview.",
+      "description": "Get one Test Collection by UUID. Returns metadata (name, status, priority, environment, assignedTo, project, folder, release, dates), stats (totalTests, passed, failed, blocked, notExecuted, skipped, inTesting), and unless includeTestDetails is false a tests array of caseId, caseNumber, caseTitle, casePriority, status, executedBy, executedAt, notes. Read-only, changes nothing. collectionId comes from list_test_collections, which is the tool for finding or comparing collections across a project rather than inspecting one. For a Manual Test Execution (the Executions-page container) use get_execution and get_execution_cases instead - a different entity, and only the rows returned by get_execution_cases can be reported against with report_case_result.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1389,7 +1330,7 @@
     },
     {
       "name": "get_test_history",
-      "description": "Get execution history for a specific test by its title path. Shows pass/fail timeline, duration changes, and retry patterns. Useful for understanding when a test started failing or became flaky.",
+      "description": "Follow ONE automated test across launches. Returns summary (totalExecutions, passed, failed, skipped, passRate, flipCount, reliabilityStatus of stable, flaky, failing or always_failing, avg/min/max durationMs, firstSeen, lastSeen) plus executions[] with status, durationMs, retry, runId, runName, runStartedAt and errors on the failures - enough to date when a test started failing or turned flaky. Read only, nothing is changed. Use get_launch_tests instead when you want every test inside one launch, and get_case_execution_history instead for a MANUAL test case, which is keyed by numeric caseId rather than by title. projectId comes from list_projects; titlePath is ONE segment of the titlePath array returned by search_tests or get_launch_tests, since a \" > \"-joined path matches nothing and comes back as an empty executions[] rather than an error.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1431,7 +1372,7 @@
     },
     {
       "name": "link_autotest_to_case",
-      "description": "Link an automated test (by title) to a manual test case for coverage tracking. The autotest does not need to exist yet (pre-linking is allowed). When the test runs, it will automatically link to this case.",
+      "description": "Link an automated test (by title) to a manual test case for coverage tracking. The autotest does not need to exist yet (pre-linking is allowed). When that test next reports a result, it links to this case automatically.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1458,7 +1399,7 @@
     },
     {
       "name": "link_launches_to_release",
-      "description": "Link automated test runs (launches) to a release. Unlike manual runs, launches are linked by reference (not copied).",
+      "description": "Link launches to a release. Unlike Test Collections, which are copied in, launches are linked by reference.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1747,7 +1688,7 @@
     },
     {
       "name": "list_test_collections",
-      "description": "List test collections (manual runs) in a project with execution stats. Collections organize manual test executions for sprints, releases, or ad-hoc testing.",
+      "description": "List Test Collections in a project - the groupings used for sprint, release or ad-hoc manual testing. Each entry returns id, name, status, priority, environment, assignedTo, folderId/folderName, releaseId/releaseName, start and end dates, and stats (totalTests, passed, failed, blocked, notExecuted, skipped, inTesting), plus a pagination block. Use it to find a collection UUID, filtered by folder, release or status; then call get_test_collection for one collection with its individual test cases and their execution status. A Test Collection is one grouping of cases, not the top-level Executions-page container, so use list_executions to find those. For the case library itself rather than runs of it, use list_test_cases. Shadow collections created inside an execution are never listed, and archived ones only with includeDeleted.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1841,7 +1782,7 @@
     },
     {
       "name": "remove_cases_from_collection",
-      "description": "Remove test cases from a test collection. Also deletes any step results for those executions.",
+      "description": "Remove test cases from a test collection. Returns collectionId, collectionName and removed (count of case rows actually deleted); ids not present in the collection are ignored rather than raising an error. Destructive and not reversible: the recorded status and step results for those cases in this collection are deleted with them, while the test cases themselves stay in the project library. add_cases_to_collection is the inverse. To retire the whole collection instead use delete_test_collection, which archives it and preserves executions; to drop a source group from an Executions-page container use remove_source_from_execution; to archive the case itself project-wide use delete_test_case. collectionId comes from list_test_collections; caseIds are the numeric internal ids from list_test_cases, not TC-numbers.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true,
@@ -2012,7 +1953,7 @@
     },
     {
       "name": "run_health_check",
-      "description": "Get a holistic health assessment for a project. Returns a composite health score (0-100) blending automation stability, coverage, and manual execution, plus per-dimension subScores and sections: automation (pass rate, flaky, failures), testAssets (case/suite counts, status/priority breakdown), coverage (automation rate + pass-rate trend), manualExecution (pass/fail/blocked/completion), and releases (status counts + active releases). Use include[] to limit which sections are computed.",
+      "description": "Get a holistic health assessment for a project. Returns a composite health score (0-100) blending automation stability, coverage, and manual execution, plus per-dimension subScores, ranked recommendations[], and sections: automation (pass rate, flaky, failures), testAssets (case/suite counts, status/priority breakdown), coverage (automation rate + pass-rate trend), manualExecution (pass/fail/blocked/completion), and releases (status counts + active releases). Use include[] to limit which sections are computed and days to set the lookback window (default 14); projectId comes from list_projects. Read-only, nothing changes. Start here when the question is broad - how healthy is this project - because every section is counts, rates and scores, so it names no individual test, case or folder. Drill down afterwards: get_launches_trends for the flaky, failing and slowest automated tests over a window, get_coverage_gaps for the cases and folders that lack automation, and get_feature_scan when the subject is one Jira issue rather than the whole project.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -2285,7 +2226,7 @@
     },
     {
       "name": "update_folder",
-      "description": "Update a folder name and/or move it to a different parent. Set parentId to null to move to root level.",
+      "description": "Rename a folder or suite and/or re-parent it. Set parentId to null to move it to root level, or omit it to keep the current parent. Returns the updated id, name, type, parentId, path, depth, casesCount and childFolderCount. A move carries everything nested inside along with it, so child paths change too; the new parent must be a folder in the same project, since suites cannot be parents and a folder cannot move into itself or into one of its own descendants. It never changes type and never creates or removes anything: use create_folder for a new folder or suite, delete_folder to archive one with all its contents, and move_test_case to relocate a single test case rather than its whole suite. Get folderId from list_folders.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
