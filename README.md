@@ -183,7 +183,7 @@ Every tool call is written to an MCP audit log with a UI in the app, and per-key
 | `Request to M00N Report API timed out` | Raise `M00N_TIMEOUT_MS`, or check the network path. |
 | `SSL certificate error connecting to ...` | A self-signed certificate on a self-hosted instance. Set `M00N_INSECURE_SSL` to `true`. |
 | `Not found during ...` | The rest of the line is the server's own answer and usually names the fix, such as which projects do exist. Read it before changing a setting. |
-| `Rate limit exceeded. Retry after Ns.` | 60 tool calls per minute per key. The message carries the wait. |
+| `Rate limit exceeded. Retry after Ns.` | 1000 tool calls per minute per key, on a sliding window. The message carries the wait. An agent working a task rarely comes close; hitting this usually means a loop. |
 | Fewer tools than expected | The key is permission-scoped, or the instance is older than the package. The tool list comes from your instance. |
 
 The server logs to stderr with or without `M00N_DEBUG`, and most clients surface it in their MCP panel. Set `M00N_DEBUG` to `true` to add each request and its arguments.

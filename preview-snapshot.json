@@ -262,7 +262,7 @@
     },
     {
       "name": "create_execution",
-      "description": "Create a Manual Test Execution (the top-level container shown on the Executions page) that aggregates collections/suites/case-groups. NOT the same as a Test Collection: use create_test_collection for a single Test Collection; use this to assemble an execution. After creating, use add_collections_to_execution / add_suites_to_execution / add_cases_to_execution to populate it. Returns the new execution id.",
+      "description": "Create a Manual Test Execution, the top-level container on the Executions page, which aggregates Test Collections, suites and named case groups. NOT the same as a Test Collection: use create_test_collection for a single grouping of cases, and this to assemble an execution out of several. Returns the whole execution under an execution key: id, name, description, status, priority, environment, assignedTo, startDate, endDate, projectId and createdAt. The id you need for everything else is execution.id, not a top-level id. It starts empty, so follow with add_suites_to_execution, add_collections_to_execution or add_cases_to_execution to put something in it.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -801,7 +801,7 @@
     },
     {
       "name": "get_case_execution_history",
-      "description": "Get manual execution history for one test case across every Manual Test Execution and release it appeared in, newest first. Returns the case identity (caseId, caseNumber, displayId, title), a summary (totalExecutions, executedCount, passed, failed, blocked, notExecuted, passRate) and executions[] of { id, runId, runName, status, executedBy, executedAt, notes, source }, each row carrying the release id/name/version or the execution id/name it came from. Read-only, changes nothing. Manual results only: use get_test_history for the pass/fail timeline of an AUTOMATED test across CI launches, and get_execution_cases to list every case inside ONE execution rather than one case across many. caseId is the internal numeric id from list_test_cases or get_test_case, never a TC-N number; the project is derived from the case. There is no offset paging - days (default 30, max 365) and limit (default 20, max 100) bound the window and the row count.",
+      "description": "Get how one manual test case has fared over time, across every Manual Test Execution and release it appeared in, newest first. Returns the executions it was part of with the status recorded each time, plus totalExecutions and passRate. totalExecutions counts memberships, including times the case was added and never run, while passRate is computed over the rows actually executed, so the two do not divide into each other. IMPORTANT: days defaults to 30, so a case last tested longer ago returns almost nothing and reads as never tested; pass days explicitly for the full history. This covers MANUAL results only: use get_test_history for an automated test across launches, and get_execution_cases for the rows inside one execution.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -886,7 +886,7 @@
     },
     {
       "name": "get_execution",
-      "description": "Get a Manual Test Execution with its sources (collections/suites/case-groups), its linked releases, its external ticket links (externalLinks, present only if you also hold integrations:read), and overall progress. Use to verify what an execution contains. sources[].id is the runId for set_execution_source_status / remove_source_from_execution. Both sources[] and progress carry every case bucket (passed/failed/blocked/inTesting/notExecuted, which sum to total) plus passRate and completionRate.",
+      "description": "Get one Manual Test Execution with everything attached to it. Returns execution (the container itself), sources (one entry per suite, Collection or case group added, each with id, name, sourceType, status and the case counts total, passed, failed, blocked, inTesting and notExecuted), releases, externalLinks, and progress. sourceType is what tells a suite source from a Collection source. progress carries the same counts across the whole execution PLUS passRate and completionRate; the entries in sources do not carry those two, so compute them per source if you need them. Use get_execution_cases for the individual case rows, which is also where report_case_result gets its executionCaseId; use list_executions to find an id.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -978,7 +978,7 @@
     },
     {
       "name": "get_folder",
-      "description": "Get one folder or suite by id. Returns its name, type, path, parent, project, and case count. Set includeStats for the statistics that used to have their own tool: automation rate, status and priority breakdown, tag usage, and time-based metrics, computed over the folder and everything nested under it, returned under \"statistics\". Set includeCases for the most recent cases in it, capped by casesLimit. Use list_folders to see the tree or to find an id; use this when you already have one id and want its detail.",
+      "description": "Get one folder or suite by id. Returns id, name, type, parentId, projectId, projectName, path, depth, casesCount, childFolderCount, displayOrder, createdAt and updatedAt. casesCount counts cases DIRECTLY in this folder, so a container folder reports 0 however much sits beneath it; childFolderCount tells you whether that is the case. Set includeStats for a statistics object over the folder AND everything nested under it, which is where totalCases, automatedCases, automationRate, status and priority breakdowns, tag usage and time-based metrics live: expect statistics.totalCases to exceed casesCount. Set includeCases for the most recent cases directly in it, capped by casesLimit. Use list_folders to see the tree or find an id; use this when you have one id and want detail.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1078,7 +1078,7 @@
     },
     {
       "name": "get_launches_statistics",
-      "description": "List the launches of a project, newest first, each with its own pass, fail, skip and duration figures. This is the paginated list: use limit, offset and search to page through individual launches, and statuses or tags to narrow which ones come back. Reach for get_launches_trends instead when the question is about the project over time rather than about particular launches, and get_launch_tests when you already have one launch and want the tests inside it. Returns launches[] with totals and a total count.",
+      "description": "List the launches of a project, newest first, each with its own pass, fail, skip and duration figures. Returns launches, a summary over the whole window (totalRuns, passedRuns, failedRuns, runningRuns, runPassRate, totalTests, totalPassed, totalFailed, totalSkipped, testPassRate, avgDurationSeconds), the period and filters applied, and pagination with the real total; there is no top-level total. IMPORTANT: days defaults to 30, so a project idle for longer returns an empty list, which means nothing in the window rather than nothing at all. Use limit, offset and search to page, statuses or tags to narrow. Reach for get_launches_trends when the question is about the project over time rather than about particular launches, and get_launch_tests when you have one launch and want the tests in it.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1145,7 +1145,7 @@
     },
     {
       "name": "get_launches_trends",
-      "description": "Aggregate a project over a window: pass rate over time, the tests that fail most, the flaky ones, duration trends and the slowest tests. This answers questions about the project, not about any one launch, so it returns series and top-N lists rather than rows. Use include[] to compute only the sections you need, days to set the window and topN to size the lists. Reach for get_launches_statistics instead when you want to page through individual launches, and get_launch_tests when you already have one launch.",
+      "description": "Aggregate a project over a window: pass rate over time, the tests that fail most, the flaky ones, duration trends and the slowest tests. IMPORTANT: the pass rate here is the share of LAUNCHES that ended green, not the share of tests that passed, and the two differ widely; for the test-level figure use summary.testPassRate from get_launches_statistics. Flakiness is ranked by flip_count, the number of times a test changed result between consecutive launches, alongside instability_score which weighs how evenly it splits between pass and fail. days defaults to 30, so a quiet project returns empty series. Use include[] to compute only the sections you need and topN to size the lists. Reach for get_launches_statistics to page through individual launches, and get_launch_tests when you have one launch.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1330,7 +1330,7 @@
     },
     {
       "name": "get_test_history",
-      "description": "Follow ONE automated test across launches. Returns summary (totalExecutions, passed, failed, skipped, passRate, flipCount, reliabilityStatus of stable, flaky, failing or always_failing, avg/min/max durationMs, firstSeen, lastSeen) plus executions[] with status, durationMs, retry, runId, runName, runStartedAt and errors on the failures - enough to date when a test started failing or turned flaky. Read only, nothing is changed. Use get_launch_tests instead when you want every test inside one launch, and get_case_execution_history instead for a MANUAL test case, which is keyed by numeric caseId rather than by title. projectId comes from list_projects; titlePath is ONE segment of the titlePath array returned by search_tests or get_launch_tests, since a \" > \"-joined path matches nothing and comes back as an empty executions[] rather than an error.",
+      "description": "Get the history of one AUTOMATED test across launches, newest first, with the result and duration each time, plus totalExecutions, passRate, flipCount and reliabilityStatus. IMPORTANT: limit bounds the summary as well as the list, so those four figures describe the returned page rather than the whole window, and days defaults to 30. Match a test by its title, which search_tests will find for you. This covers automated results only: use get_case_execution_history for how a MANUAL case has fared, and get_launch_tests for every test inside one launch rather than one test across many.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1511,7 +1511,7 @@
     },
     {
       "name": "list_folders",
-      "description": "List all folders and suites for a project. Call this to get folder IDs needed for create_test_case. Returns a flat list with hierarchy info (parentId, path, depth). Folders can contain other folders and suites; suites are leaf nodes that contain test cases only.",
+      "description": "List the folder and suite tree of a project as a flat array under folders, with a total count. Every row carries id, name, type (folder or suite), parentId, path, depth, casesCount (cases directly in it, so 0 for most containers), childFolderCount, displayOrder, createdAt and updatedAt, which is enough to rank folders by size or to find the suites without a second call. Use this to browse or to find an id, then get_folder for one folder in detail with optional statistics over its whole subtree. Suites are the leaf nodes that hold test cases; use list_test_cases for the cases themselves.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1953,7 +1953,7 @@
     },
     {
       "name": "run_health_check",
-      "description": "Get a holistic health assessment for a project. Returns a composite health score (0-100) blending automation stability, coverage, and manual execution, plus per-dimension subScores, ranked recommendations[], and sections: automation (pass rate, flaky, failures), testAssets (case/suite counts, status/priority breakdown), coverage (automation rate + pass-rate trend), manualExecution (pass/fail/blocked/completion), and releases (status counts + active releases). Use include[] to limit which sections are computed and days to set the lookback window (default 14); projectId comes from list_projects. Read-only, nothing changes. Start here when the question is broad - how healthy is this project - because every section is counts, rates and scores, so it names no individual test, case or folder. Drill down afterwards: get_launches_trends for the flaky, failing and slowest automated tests over a window, get_coverage_gaps for the cases and folders that lack automation, and get_feature_scan when the subject is one Jira issue rather than the whole project.",
+      "description": "Get a holistic health assessment for a project: a composite score from 0 to 100 blending automation stability, coverage and manual execution, plus per-dimension subScores and sections for automation (pass rate, flaky, failures), testAssets (case and suite counts, status and priority breakdown), coverage (automation rate and pass-rate trend), manualExecution (pass, fail, blocked, completion) and releases (status counts and active releases). IMPORTANT: days defaults to 14 here while get_launches_trends defaults to 30, so pass the same days to both before comparing their answers. Use include[] to limit which sections are computed. Reach for get_coverage_gaps when you want the specific cases and folders that lack automation rather than one score, and get_feature_scan when the scope is a single Jira issue.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
