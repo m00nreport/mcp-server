@@ -20,6 +20,12 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { M00NApiClient, Tool, StaticResource, ResourceTemplate, Prompt } from './api-client.js';
 import { Config, log, debug } from './config.js';
+import {
+  toToolDefinition,
+  toResourceDefinition,
+  toTemplateDefinition,
+  toPromptDefinition,
+} from './list-shapes.js';
 import { VERSION, PACKAGE_NAME } from './version.js';
 
 /**
@@ -128,15 +134,7 @@ export async function createServer(config: Config): Promise<void> {
   // Register list_tools handler
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     debug('Handling list_tools request', config);
-    return {
-      tools: tools.map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-        // Include annotations if present (MCP 2025 spec)
-        ...(tool.annotations && { annotations: tool.annotations }),
-      })),
-    };
+    return { tools: tools.map(toToolDefinition) };
   });
 
   // Register call_tool handler
@@ -184,27 +182,13 @@ export async function createServer(config: Config): Promise<void> {
     // Handle list_resources - return static resources
     server.setRequestHandler(ListResourcesRequestSchema, async () => {
       debug('Handling list_resources request', config);
-      return {
-        resources: staticResources.map((r) => ({
-          uri: r.uri,
-          name: r.name,
-          description: r.description,
-          mimeType: r.mimeType,
-        })),
-      };
+      return { resources: staticResources.map(toResourceDefinition) };
     });
 
     // Handle list_resource_templates - dynamic URI templates
     server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
       debug('Handling list_resource_templates request', config);
-      return {
-        resourceTemplates: resourceTemplates.map((rt) => ({
-          uriTemplate: rt.uriTemplate,
-          name: rt.name,
-          description: rt.description,
-          mimeType: rt.mimeType,
-        })),
-      };
+      return { resourceTemplates: resourceTemplates.map(toTemplateDefinition) };
     });
 
     // Register read_resource handler (works for both static and templated)
@@ -235,17 +219,7 @@ export async function createServer(config: Config): Promise<void> {
   if (prompts.length > 0) {
     server.setRequestHandler(ListPromptsRequestSchema, async () => {
       debug('Handling list_prompts request', config);
-      return {
-        prompts: prompts.map((p) => ({
-          name: p.name,
-          description: p.description,
-          arguments: p.arguments.map((arg) => ({
-            name: arg.name,
-            description: arg.description,
-            required: arg.required,
-          })),
-        })),
-      };
+      return { prompts: prompts.map(toPromptDefinition) };
     });
 
     server.setRequestHandler(GetPromptRequestSchema, async (request) => {

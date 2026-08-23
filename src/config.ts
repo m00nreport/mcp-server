@@ -65,6 +65,36 @@ export function loadConfig(): Config {
 }
 
 /**
+ * Whether this process can talk to an instance, or can only describe itself.
+ */
+export type Startup = { mode: 'live'; config: Config } | { mode: 'preview' };
+
+/**
+ * Decide how to start.
+ *
+ * Preview is for a process nobody has configured yet: an inspector, a directory
+ * building the server to see what it offers, someone running it to look before
+ * signing up. It answers the listings from a snapshot and refuses tool calls.
+ *
+ * The trigger is BOTH variables being absent, never one of them. Setting only
+ * the URL, or only the key, is someone half way through configuring, and
+ * quietly showing them a preview would hide the mistake behind a server that
+ * looks like it started.
+ *
+ * @throws Error if either variable is present and the pair does not validate
+ */
+export function resolveStartup(): Startup {
+  const url = process.env.M00N_API_URL?.trim();
+  const key = process.env.M00N_API_KEY?.trim();
+
+  if (!url && !key) {
+    return { mode: 'preview' };
+  }
+
+  return { mode: 'live', config: loadConfig() };
+}
+
+/**
  * Parse boolean from environment variable
  */
 function parseBooleanEnv(value: string | undefined): boolean {

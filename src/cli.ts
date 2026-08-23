@@ -3,19 +3,25 @@
 // This is the main entry point invoked by bin/m00n-mcp.js
 // It loads configuration from environment variables and starts the server.
 
-import { loadConfig, log } from './config.js';
+import { resolveStartup, log } from './config.js';
 import { createServer } from './server.js';
+import { startPreviewServer } from './preview.js';
 
 /**
  * Main entry point
  */
 async function main(): Promise<void> {
   try {
-    // Load and validate configuration
-    const config = loadConfig();
-    
-    // Start the server
-    await createServer(config);
+    const startup = resolveStartup();
+
+    // Nobody has configured this process. Describe the server rather than
+    // exiting, so an inspector or a directory can still see what it offers.
+    if (startup.mode === 'preview') {
+      await startPreviewServer();
+      return;
+    }
+
+    await createServer(startup.config);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`Fatal error: ${message}`);

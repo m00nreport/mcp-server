@@ -29,3 +29,36 @@ jobs:
       # which is the specific failure a badge exists to prevent.
       - name: Unit tests
         run: node --test
+
+  # The image is how a directory builds and runs this server. A broken COPY turns
+  # nothing red on its own: it fails on their side, and Glama withholds
+  # distribution entirely when a build fails, so the symptom is silence rather
+  # than an error. Build it here, and prove the container still answers with no
+  # credentials at all.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image
+        run: docker build -t m00n-mcp:ci .
+
+      - name: It answers introspection with no credentials
+        run: |
+          set -uo pipefail
+          {
+            echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}'
+            echo '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
+            echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+            sleep 5
+          } | docker run -i --rm m00n-mcp:ci > out.jsonl || true
+
+          # Counting tool names rather than parsing: the point is that a real
+          # listing came back, and an empty or absent one must not read as a pass.
+          COUNT=$(grep -o '"name":"[a-z_]*"' out.jsonl | wc -l)
+          echo "tool names seen: $COUNT"
+          if [ "$COUNT" -lt 10 ]; then
+            echo "::error::The container did not list its tools when started unconfigured."
+            cat out.jsonl
+            exit 1
+          fi

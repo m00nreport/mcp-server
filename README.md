@@ -25,7 +25,7 @@ Node 20 or newer, and any MCP-capable client.
 
 No install step. The client launches it with `npx`, as configured below.
 
-To pin a version in a shared or CI environment, append one to the package name in `args`, for example `["-y", "@m00nsolutions/mcp-server@1.4.4"]`. `npm view @m00nsolutions/mcp-server versions` lists what is published.
+To pin a version in a shared or CI environment, append one to the package name in `args`, for example `["-y", "@m00nsolutions/mcp-server@1.5.0"]`. `npm view @m00nsolutions/mcp-server versions` lists what is published.
 
 ## Quick Start
 
@@ -127,15 +127,31 @@ Read-only views the client can pull without calling a tool: all projects, projec
 
 | Env var | Required | Default | Description |
 |---|---|---|---|
-| `M00N_API_URL` | yes | | Your M00N Report URL. Root origin, no `/api` suffix. A trailing slash is stripped for you. |
-| `M00N_API_KEY` | yes | | An MCP key (`m00n_mcp_...`). Anything without that prefix is refused before the first request. |
+| `M00N_API_URL` | to connect | | Your M00N Report URL. Root origin, no `/api` suffix. A trailing slash is stripped for you. |
+| `M00N_API_KEY` | to connect | | An MCP key (`m00n_mcp_...`). Anything without that prefix is refused before the first request. |
 | `M00N_DEBUG` | no | `false` | Adds per-request detail to stderr, including each tool call's arguments. Startup steps and errors are logged either way. |
 | `M00N_TIMEOUT_MS` | no | `30000` | Request timeout, a bare number of milliseconds. `60s`, `1e4`, `30,000` and `1.5` are rejected with a warning on stderr and the default is used instead. |
 | `M00N_INSECURE_SSL` | no | `false` | Accept a self-signed certificate. Self-hosted instances only. |
 
 The two booleans are on for `true`, `1` or `yes`, in any case. Every other value, `false` and `0` included, leaves them off.
 
+Set both of the first two or neither. Setting one is treated as a mistake and refused, because a
+half-configured server that starts anyway is harder to diagnose than one that does not.
+
 The base URL is `M00N_API_URL` here; the test reporters call the same URL `M00N_SERVER_URL`. All six packages read `M00N_API_KEY`, but theirs is a project API key rather than an MCP key, so one exported shell variable cannot serve both.
+
+## Running Without a Key
+
+Started with neither `M00N_API_URL` nor `M00N_API_KEY`, the server runs in preview mode: it lists
+its tools, prompts and resources from a bundled snapshot and refuses every call with a message
+saying what to set. Nothing is sent anywhere, because there is nowhere to send it.
+
+That is what lets an inspector, a client or a directory show the tool surface before anyone has
+signed up. It is a description of the server, never a working one, so the listings come from the
+snapshot rather than from your instance: a scoped key normally sees fewer tools than the snapshot
+shows.
+
+Maintainers refresh the snapshot with `npm run snapshot:refresh` against an unscoped key.
 
 ## Self-Hosted
 
@@ -154,6 +170,7 @@ Every tool call is written to an MCP audit log with a UI in the app, and per-key
 | Symptom | Cause |
 |---|---|
 | The client shows no M00N Report tools | The config was not reloaded. Restart the client fully, not just the conversation. |
+| Tools are listed but every call answers `running unconfigured` | Neither `M00N_API_URL` nor `M00N_API_KEY` reached the process, so it started in preview mode. Check the `env` block actually applies to this server. |
 | `M00N_API_KEY should start with "m00n_mcp_"` | That is a project API key, the kind the test reporters use. MCP keys are separate: Settings -> MCP Keys. |
 | `Authentication failed: Invalid or expired MCP key` | The key is wrong, revoked, or from another instance. Or `M00N_API_URL` carries an `/api` suffix, which makes every request 401 however good the key is. Check the URL first, then issue a new key. |
 | `Cannot connect to M00N Report API at ...` | Nothing is listening at that URL. The instance is down, or the port is closed to you. |
@@ -169,8 +186,8 @@ The server logs to stderr with or without `M00N_DEBUG`, and most clients surface
 ## Known Limitations
 
 - **The tool list is read once, at startup.** Re-scope a key or upgrade the instance and the client keeps the old list until you restart the client.
-- **`GET /api/health` must be reachable.** It is checked before anything else and a failure stops the server, so a proxy forwarding only `/api/mcp/*` shows no tools at all even though every tool would work.
-- **A key scoped to zero tools does not start.** The server exits rather than connecting with an empty list.
+- **`GET /api/health` must be reachable when configured.** It is checked before anything else and a failure stops the server, so a proxy forwarding only `/api/mcp/*` shows no tools at all even though every tool would work.
+- **A key scoped to zero tools does not start.** The server exits rather than connecting with an empty list. This is the configured path; with no credentials at all it starts in preview mode instead.
 - **Prompts and resources are optional.** If their listings fail, the server still starts, with the reason on stderr, and the client sees none of them for the whole session.
 - **stdio only.** For an HTTP transport, use the hosted connector.
 

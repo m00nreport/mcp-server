@@ -1,0 +1,9 @@
+# The build installs its own dependencies and compiles its own sources, so
+# everything below is context sent to the daemon and then discarded.
+node_modules
+dist
+.git
+.github
+test
+scripts
+*.tgz

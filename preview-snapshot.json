@@ -1,0 +1,2649 @@
+{
+  "tools": [
+    {
+      "name": "add_cases_to_collection",
+      "description": "Add test cases to an existing test collection. Cases must exist and belong to the same project. Duplicate cases are skipped.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "collectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Test collection UUID"
+          },
+          "caseIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "description": "Numeric test case IDs to add (e.g., [1, 2, 3])"
+          }
+        },
+        "required": [
+          "collectionId",
+          "caseIds"
+        ]
+      }
+    },
+    {
+      "name": "add_cases_to_execution",
+      "description": "Add a named group of individual test cases to an execution (source_type cases). caseIds are NUMERIC. Cases must belong to the execution's project; invalid/cross-project ids are skipped. An empty result creates no group. Returns {added, skipped, groupId}.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Execution UUID"
+          },
+          "caseIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "maxItems": 1000,
+            "description": "Numeric case ids"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Label for this case group"
+          }
+        },
+        "required": [
+          "executionId",
+          "caseIds",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "add_collections_to_execution",
+      "description": "Add one or more Test Collections (manual runs) to an execution. Each is snapshotted in as a test run. Collections must belong to the execution's project; others are skipped. Idempotent: collections already present in the execution are skipped (not duplicated). Returns {added, skipped}.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Execution UUID"
+          },
+          "collectionIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "Collection (manual run) UUIDs"
+          }
+        },
+        "required": [
+          "executionId",
+          "collectionIds"
+        ]
+      }
+    },
+    {
+      "name": "add_external_link",
+      "description": "Link any test entity (case/execution/release/launch) to an external ticket in Jira, Linear, GitHub, GitLab, or any other system. Idempotent: linking the same external_id twice returns the existing link.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "type": "string",
+            "enum": [
+              "case",
+              "execution",
+              "release",
+              "launch"
+            ],
+            "description": "Type of M00N entity to link."
+          },
+          "entityId": {
+            "description": "Entity ID: numeric integer for case, UUID string for the others."
+          },
+          "provider": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Provider identifier, lowercase. Common: 'jira', 'linear', 'github', 'gitlab'."
+          },
+          "externalId": {
+            "type": "string",
+            "description": "External ticket key/number, e.g. PROJ-123, ENG-456, #42. For Jira, also accepts a full issue URL (e.g. https://yourorg.atlassian.net/browse/PROJ-123) - the key is extracted automatically."
+          },
+          "externalUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Full URL to the external ticket. Required for non-Jira providers. Optional for Jira (the canonical URL is fetched from the Jira API)."
+          },
+          "externalTitle": {
+            "type": "string",
+            "description": "Optional title/summary of the ticket. Ignored for Jira (title comes from the Jira API)."
+          },
+          "linkType": {
+            "type": "string",
+            "enum": [
+              "covers",
+              "tests",
+              "blocks",
+              "related",
+              "defect",
+              "custom"
+            ],
+            "default": "covers"
+          }
+        },
+        "required": [
+          "entityType",
+          "entityId",
+          "provider",
+          "externalId"
+        ]
+      }
+    },
+    {
+      "name": "add_suites_to_execution",
+      "description": "Add one or more Suites (folders of type suite) to an execution. Each suite's current cases are snapshotted in. Suites must belong to the execution's project; others are skipped. Idempotent: suites already present in the execution are skipped (not duplicated). Returns {added, skipped}.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Execution UUID"
+          },
+          "suiteIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "Suite (folder) UUIDs"
+          }
+        },
+        "required": [
+          "executionId",
+          "suiteIds"
+        ]
+      }
+    },
+    {
+      "name": "bulk_update_cases",
+      "description": "Update multiple test cases at once. Supports updating status, priority, and tags for a batch of cases. All cases must belong to the same project.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "caseIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "Array of numeric case IDs to update (e.g., [1, 2, 3])"
+          },
+          "updates": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "description": "New status for all cases (e.g., \"Ready\", \"Approved\")"
+              },
+              "priority": {
+                "type": "string",
+                "description": "New priority for all cases (e.g., \"High\", \"Critical\")"
+              },
+              "addTags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Tags to add to all cases"
+              },
+              "removeTags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Tags to remove from all cases"
+              }
+            },
+            "description": "Updates to apply. At least one field must be provided."
+          }
+        },
+        "required": [
+          "caseIds",
+          "updates"
+        ]
+      }
+    },
+    {
+      "name": "create_execution",
+      "description": "Create a Manual Test Execution (the top-level container shown on the Executions page) that aggregates collections/suites/case-groups. NOT the same as a Test Collection: use create_test_collection for a single manual run; use this to assemble an execution. After creating, use add_collections_to_execution / add_suites_to_execution / add_cases_to_execution to populate it. Returns the new execution id.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 500,
+            "description": "Execution name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description"
+          },
+          "status": {
+            "type": "string",
+            "description": "Optional. One of: not_executed, in_testing, passed, failed, blocked (plus any project-custom values). Defaults to 'not_executed'."
+          },
+          "priority": {
+            "type": "string",
+            "description": "Optional. One of: low, medium, high, critical. Defaults to 'medium'."
+          },
+          "environment": {
+            "type": "string",
+            "description": "Optional environment label (e.g. QA, Staging)"
+          },
+          "assignedTo": {
+            "type": "string",
+            "description": "Optional assignee user id (must be a project member)"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Optional ISO date"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "Optional ISO date (>= startDate)"
+          },
+          "releaseIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Optional release UUIDs to link"
+          }
+        },
+        "required": [
+          "projectId",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "create_folder",
+      "description": "Create a new folder or suite in a project. Folders can contain other folders and suites; suites are leaf nodes for test cases. IMPORTANT: Omit \"type\" to use smart defaults (folder at root, suite when nested). To create a suite specifically, you can also use the create_suite alias.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to create folder in"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Folder/suite name"
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Parent folder UUID. Omit for root-level folder. Note: suites cannot be parents."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "folder",
+              "suite"
+            ],
+            "description": "OPTIONAL - auto-detected. \"folder\" can contain children, \"suite\" is a leaf for test cases. Defaults to \"folder\" at root, \"suite\" when nested."
+          }
+        },
+        "required": [
+          "projectId",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "create_release",
+      "description": "Create a new release in a project. Releases track versions and aggregate manual and automated test results. Omit status to default to \"planned\".",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to create release in"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Release name (e.g., \"Sprint 42\", \"v2.1.0 Release\")"
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Version string (e.g., \"2.1.0\", \"2026-Q1\")"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description of the release scope"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "in_progress",
+              "completed",
+              "cancelled"
+            ],
+            "default": "planned",
+            "description": "OPTIONAL - defaults to \"planned\". Valid: planned, in_progress, completed, cancelled."
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Release start date (YYYY-MM-DD)"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Target end/release date (YYYY-MM-DD)"
+          }
+        },
+        "required": [
+          "projectId",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "create_suite",
+      "description": "Create a test suite (a leaf node that holds test cases) inside a folder. This is a convenience alias for create_folder with type=\"suite\". Use this when the user asks to \"create a suite\". Suites cannot live at the root level, so parentId (a folder UUID) is required.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to create the suite in"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Suite name"
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Parent folder UUID the suite will live inside. Required - suites cannot be created at the root level."
+          }
+        },
+        "required": [
+          "projectId",
+          "name",
+          "parentId"
+        ]
+      }
+    },
+    {
+      "name": "create_test_case",
+      "description": "Create a new test case in a test suite. Test cases MUST live inside a suite (not a bare folder). You can provide either: (A) a folderId pointing to an existing suite, or (B) a projectId with optional folderName/suiteName to auto-create the folder→suite hierarchy. If folderId points to a folder (not a suite), a suite is auto-created inside it. Returns the full created case object including shareUrl. Tags are auto-created if they do not exist. IMPORTANT: Omit status and priority to use sensible defaults (Draft, Medium).",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Suite (or folder) UUID where the case will be created. If this points to a folder, a suite is auto-created inside it. Alternative: use projectId + folderName + suiteName instead."
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID. Required when folderId is not provided. Used to find or auto-create the folder→suite hierarchy."
+          },
+          "folderName": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Name of the folder to find or create (default: \"General\"). Used with projectId when folderId is not provided."
+          },
+          "suiteName": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Name of the suite to find or create inside the folder (default: \"General\"). Used with projectId when folderId is not provided."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Test case title (required)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description of the test case. Supports Markdown: **bold**, *italic*, ~~strikethrough~~, inline `code`, # / ## / ### headings, \"- \" bullet and \"1. \" numbered lists, [text](url) links, and \"> \" blockquotes. Plain text works too. Images and fenced code blocks are not supported."
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "description": "Step action to perform. Supports Markdown (**bold**, *italic*, `code`, lists, [links](url)). Plain text is fine."
+                },
+                "expected": {
+                  "type": "string",
+                  "description": "Expected result. Supports Markdown (**bold**, *italic*, `code`, lists, [links](url)). Plain text is fine."
+                }
+              }
+            },
+            "description": "Array of test steps with action and expected result"
+          },
+          "status": {
+            "type": "string",
+            "default": "Draft",
+            "description": "OPTIONAL - defaults to \"Draft\". Only specify if user explicitly requests a different status. Valid values vary by project (typically: Draft, Ready, Approved, Deprecated)."
+          },
+          "priority": {
+            "type": "string",
+            "default": "Medium",
+            "description": "OPTIONAL - defaults to \"Medium\". Only specify if user explicitly requests a different priority. Valid values vary by project (typically: Low, Medium, High, Critical)."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tags to assign to the case. New tags are auto-created."
+          },
+          "dependsOn": {
+            "type": "integer",
+            "description": "Numeric case ID this case depends on"
+          },
+          "customFields": {
+            "type": "object",
+            "description": "Custom field values as key-value pairs"
+          },
+          "externalLinks": {
+            "type": "array",
+            "description": "Optional list of external ticket links to attach to the created case. Each link is inserted atomically with the case - any failure rolls back the entire creation. For Jira, externalUrl is fetched from the Jira API (just pass the issue key or full /browse/ URL as externalId); for other providers, externalUrl is required.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "description": "Provider identifier, lowercase. Common: 'jira', 'linear', 'github', 'gitlab'."
+                },
+                "externalId": {
+                  "type": "string",
+                  "description": "External ticket key/number. For Jira, also accepts a full /browse/ URL."
+                },
+                "externalUrl": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "Full URL to the external ticket. Required for non-Jira providers; optional for Jira."
+                },
+                "externalTitle": {
+                  "type": "string"
+                },
+                "linkType": {
+                  "type": "string",
+                  "enum": [
+                    "covers",
+                    "tests",
+                    "blocks",
+                    "related",
+                    "defect",
+                    "custom"
+                  ]
+                }
+              },
+              "required": [
+                "provider",
+                "externalId"
+              ]
+            }
+          }
+        },
+        "required": [
+          "title"
+        ]
+      }
+    },
+    {
+      "name": "create_test_collection",
+      "description": "Create a new test collection (a single manual run) and optionally add test cases to it. This is one manual run, NOT the top-level Executions-page container - use create_execution for that (an execution can then include this collection via add_collections_to_execution). Returns the created collection with count of added tests. Omit priority to default to \"medium\".",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to create collection in"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Collection name (e.g., \"Sprint 42 Regression\")"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description of the test collection"
+          },
+          "releaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Link to a release UUID"
+          },
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Folder UUID to place collection in (omit for root level)"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "default": "medium",
+            "description": "OPTIONAL - defaults to \"medium\". Valid: low, medium, high, critical."
+          },
+          "environment": {
+            "type": "string",
+            "description": "Target environment (e.g., \"staging\", \"production\")"
+          },
+          "assignedTo": {
+            "type": "string",
+            "description": "Email address of the assigned tester"
+          },
+          "caseIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Numeric test case IDs to add to collection (e.g., [1, 2, 3])"
+          }
+        },
+        "required": [
+          "projectId",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "delete_execution",
+      "description": "Soft-delete an entire Manual Test Execution (and unlink any manual runs that pointed to it). Reversible only via support/DB - use with care. To remove just one source group instead, use remove_source_from_execution. Returns { deleted: true }.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Execution UUID"
+          }
+        },
+        "required": [
+          "executionId"
+        ]
+      }
+    },
+    {
+      "name": "delete_folder",
+      "description": "Soft delete (archive) a folder and all its contents. Archives all nested folders and test cases recursively. Can be restored via the UI.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Folder UUID to archive"
+          }
+        },
+        "required": [
+          "folderId"
+        ]
+      }
+    },
+    {
+      "name": "delete_release",
+      "description": "Soft delete (archive) a release. The release can be restored via the UI. All linked test runs and launches are preserved.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Release UUID to archive"
+          }
+        },
+        "required": [
+          "releaseId"
+        ]
+      }
+    },
+    {
+      "name": "delete_test_case",
+      "description": "Soft delete (archive) a test case. The case can be restored via the UI. Also unlinks any connected autotests.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "integer",
+            "description": "Numeric test case ID to archive"
+          }
+        },
+        "required": [
+          "caseId"
+        ]
+      }
+    },
+    {
+      "name": "delete_test_collection",
+      "description": "Archive (soft delete) a test collection. The collection can be restored via the UI. Test executions are preserved.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "collectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Test collection UUID to archive"
+          }
+        },
+        "required": [
+          "collectionId"
+        ]
+      }
+    },
+    {
+      "name": "export_report",
+      "description": "Generate a formatted report for a project. Supports summary, failures, trends, and release reports in markdown or JSON. Returns the report content as a string. NOTE: reportType \"release\" requires the releaseId argument (get it from list_releases).",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to generate report for"
+          },
+          "reportType": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "failures",
+              "trends",
+              "release"
+            ],
+            "default": "summary",
+            "description": "Type of report: summary (overview), failures (failed tests), trends (pass rate over time), release (release status)"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90,
+            "default": 7,
+            "description": "Lookback period for report data"
+          },
+          "releaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Release UUID (required for release report type)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "json"
+            ],
+            "default": "markdown",
+            "description": "Output format"
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "get_case_execution_history",
+      "description": "Get manual execution history for a test case across all test runs (both standalone executions and release test runs). Returns pass rate and execution timeline.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "integer",
+            "description": "Internal numeric test case id (the \"id\" from list_test_cases / get_test_case / create_test_case). This is NOT the user-facing \"TC-N\" number (caseNumber/displayId) - if the user gave you a \"TC-N\", resolve it first via list_test_cases(search: \"TC-N\") and use the returned id. Project is derived from the case."
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365,
+            "default": 30,
+            "description": "Lookback period in days"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Maximum number of executions to return"
+          }
+        },
+        "required": [
+          "caseId"
+        ]
+      }
+    },
+    {
+      "name": "get_coverage_gaps",
+      "description": "Identify test coverage gaps in a project. Shows test cases without linked autotests, folders with low automation rates, and (reverse gap) autotests seen in the most recent launches that are not linked to any test case. Useful for test planning and coverage improvement.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to analyze"
+          },
+          "automationThreshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 50,
+            "description": "Folders below this automation % are flagged as low coverage (default: 50)"
+          },
+          "includeUnlinkedCases": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include list of test cases without linked autotests"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Maximum number of unlinked cases to return"
+          },
+          "recentLaunches": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 10,
+            "description": "How many of the most recent launches to scan for autotests that are not linked to any test case (reverse coverage gap). Default and max: 10."
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "get_execution",
+      "description": "Get a Manual Test Execution with its sources (collections/suites/case-groups), its linked releases, its external ticket links (externalLinks, present only if you also hold integrations:read), and overall progress. Use to verify what an execution contains. sources[].id is the runId for set_execution_source_status / remove_source_from_execution. Both sources[] and progress carry every case bucket (passed/failed/blocked/inTesting/notExecuted, which sum to total) plus passRate and completionRate.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Execution UUID"
+          }
+        },
+        "required": [
+          "executionId"
+        ]
+      }
+    },
+    {
+      "name": "get_execution_cases",
+      "description": "List the individual case-run rows of a Manual Test Execution so you can report results against them. Returns each row's executionCaseId (UUID - pass to report_case_result), caseId (numeric), group, current status, the case-level result fields (notes, causedBy, durationMinutes, executedBy, executedAt), the case's externalLinks (Jira/Linear tickets, present only if you also hold integrations:read), and steps (0-based index, action, expected, current step status, issueDescription). Everything report_case_result writes reads back here. Use after add_*_to_execution and before report_case_result. Supports paging + filtering by group/status/title.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Execution UUID"
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional: only cases in this source group (execution_test_run UUID)"
+          },
+          "status": {
+            "type": "string",
+            "description": "Optional case-status filter (e.g. not_executed, passed, failed)"
+          },
+          "search": {
+            "type": "string",
+            "description": "Optional case-title search"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          }
+        },
+        "required": [
+          "executionId"
+        ]
+      }
+    },
+    {
+      "name": "get_feature_scan",
+      "description": "Get a comprehensive feature health scan by Jira issue key. Returns Jira context (summary, status, type, assignee), test coverage stats (case count, automation ratio, pass rate, risk score), linked test cases, and autotest results with recent run trends. Automatically detects issue hierarchy and aggregates child issues (2 levels deep: epic→story→subtask). Requires Jira to be connected to the organization.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jiraKey": {
+            "type": "string",
+            "description": "Jira issue key (e.g., PROJ-111). Can be any issue type - epics, stories, tasks, bugs, sub-tasks. Epics automatically aggregate all child issue data."
+          }
+        },
+        "required": [
+          "jiraKey"
+        ]
+      }
+    },
+    {
+      "name": "get_folder",
+      "description": "Get a single folder with details including path, case count, and optionally statistics and recent cases.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Folder UUID to get. Obtain from list_folders."
+          },
+          "includeStats": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include detailed statistics (automation rate, status/priority breakdown)"
+          },
+          "includeCases": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include list of recent test cases in folder"
+          },
+          "casesLimit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Maximum number of cases to include (when includeCases=true)"
+          }
+        },
+        "required": [
+          "folderId"
+        ]
+      }
+    },
+    {
+      "name": "get_folder_statistics",
+      "description": "Get detailed statistics for a folder including nested folders. Returns automation rate, status/priority breakdown, tag usage, and time-based metrics.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Folder UUID to get statistics for. Obtain from list_folders."
+          }
+        },
+        "required": [
+          "folderId"
+        ]
+      }
+    },
+    {
+      "name": "get_launch_tests",
+      "description": "Get all tests from a specific launch/run with detailed results. Includes error messages and stack traces for failed tests. For each failed test that has artifacts, the response also includes an `attachments` array where each item is `{ id, name, contentType, size, url }`. The `url` is a fully-qualified URL; if it is an API URL, fetch it with the same `X-MCP-Key` header you use for this MCP server (presigned storage URLs need no header) to download screenshots, traces, videos, and source files when investigating failures.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "launchId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Run/launch UUID to get tests from. Obtain from get_launches_statistics or get_launches_trends."
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "passed",
+                "failed",
+                "skipped",
+                "running",
+                "timedOut",
+                "interrupted"
+              ]
+            },
+            "description": "Filter by test status (default: all statuses)"
+          },
+          "search": {
+            "type": "string",
+            "description": "Search in test title path or file path"
+          },
+          "includeErrors": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include error details for failed tests"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50,
+            "description": "Number of tests to return"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Pagination offset"
+          }
+        },
+        "required": [
+          "launchId"
+        ]
+      }
+    },
+    {
+      "name": "get_launches_statistics",
+      "description": "Get a list of launches (test runs) with aggregated statistics for a project.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to query"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365,
+            "default": 30,
+            "description": "Lookback period in days"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filter by tags"
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "passed",
+                "failed",
+                "running",
+                "interrupted"
+              ]
+            },
+            "description": "Filter by run status"
+          },
+          "search": {
+            "type": "string",
+            "description": "Search in launch title/ID/tags"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Number of launches to return"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Pagination offset"
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "get_launches_trends",
+      "description": "Get comprehensive trend data for a project including pass rates, failing tests, flaky tests, duration trends, and more.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to analyze"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365,
+            "default": 30,
+            "description": "Lookback period in days (1-365)"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filter runs by these tags"
+          },
+          "topN": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10,
+            "description": "Limit for top-N lists (failing, flaky, slowest tests)"
+          },
+          "include": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "passRate",
+                "duration",
+                "failing",
+                "flaky",
+                "slowest",
+                "testsByTags"
+              ]
+            },
+            "default": [
+              "passRate",
+              "failing",
+              "flaky"
+            ],
+            "description": "Which trends to include in response"
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "get_project",
+      "description": "Get a project's configuration: its meta, the system-field vocabularies it actually uses (statuses/priorities/environments), and its case custom-field definitions. Call this to discover the VALID status values before setting them - e.g. execution_status (execution overall), test_case_execution_status (a case in an execution), test_run_status (a source group). Values are project-customizable, so do not hardcode them. Returns { project, systemFields{ case_status, case_priority, execution_status, test_case_execution_status, test_run_status, release_status, test_environment }, customFields[] }.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID (from list_projects)"
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "get_release",
+      "description": "Get a single release with full details including aggregate stats, optionally with linked manual executions and automated launches.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Release UUID. Obtain from list_releases."
+          },
+          "includeLinkedExecutions": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include the linked manual executions with per-execution stats. Set false to keep the response small - the stats.linkedExecutions totals are returned either way."
+          },
+          "includeLaunches": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include linked automated launches with stats"
+          }
+        },
+        "required": [
+          "releaseId"
+        ]
+      }
+    },
+    {
+      "name": "get_test_case",
+      "description": "Get a single test case with full details including steps, custom fields, dependencies, shareUrl for sharing, and optionally linked autotests and edit history.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "integer",
+            "description": "Internal numeric test case id (the \"id\" from list_test_cases / get_test_case / create_test_case). This is NOT the user-facing \"TC-N\" number (caseNumber/displayId) - if the user gave you a \"TC-N\", resolve it first via list_test_cases(search: \"TC-N\") and use the returned id. Project is derived from the case."
+          },
+          "includeHistory": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include edit history (audit log of changes)"
+          },
+          "includeLinkedAutotests": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include explicitly linked autotest paths"
+          },
+          "includeRecentExecutions": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include recent autotest execution results from CI runs"
+          }
+        },
+        "required": [
+          "caseId"
+        ]
+      }
+    },
+    {
+      "name": "get_test_collection",
+      "description": "Get a test collection with all test cases and their execution status. Returns collection metadata plus test execution overview.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "collectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Test collection UUID. Obtain from list_test_collections."
+          },
+          "includeTestDetails": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include list of test cases with execution status"
+          }
+        },
+        "required": [
+          "collectionId"
+        ]
+      }
+    },
+    {
+      "name": "get_test_history",
+      "description": "Get execution history for a specific test by its title path. Shows pass/fail timeline, duration changes, and retry patterns. Useful for understanding when a test started failing or became flaky.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID"
+          },
+          "titlePath": {
+            "type": "string",
+            "description": "ONE segment of the title path, normally the test name itself (e.g. \"should validate credentials\"). Matching is a case-insensitive substring of the stored title-path array, so a \" > \"-joined path matches nothing and returns an empty history rather than an error. search_tests and get_launch_tests return titlePath as an array - pick one segment out of it."
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90,
+            "default": 30,
+            "description": "Lookback period in days"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Maximum number of executions to return"
+          }
+        },
+        "required": [
+          "projectId",
+          "titlePath"
+        ]
+      }
+    },
+    {
+      "name": "link_autotest_to_case",
+      "description": "Link an automated test (by title) to a manual test case for coverage tracking. The autotest does not need to exist yet (pre-linking is allowed). When the test runs, it will automatically link to this case.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "integer",
+            "description": "Numeric test case ID to link to"
+          },
+          "testTitle": {
+            "type": "string",
+            "description": "The test title to link, e.g., \"should validate credentials\" or \"[E-SO-16] should allow editing...\""
+          }
+        },
+        "required": [
+          "caseId",
+          "testTitle"
+        ]
+      }
+    },
+    {
+      "name": "link_launches_to_release",
+      "description": "Link automated test runs (launches) to a release. Unlike manual runs, launches are linked by reference (not copied).",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Release UUID to link launches to"
+          },
+          "launchIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "Run/launch UUIDs to link to the release. Obtain from get_launches_statistics."
+          }
+        },
+        "required": [
+          "releaseId",
+          "launchIds"
+        ]
+      }
+    },
+    {
+      "name": "list_executions",
+      "description": "List Manual Test Executions for a project with progress stats. Use to find an existing execution id before adding sources. progress carries every case bucket (passed/failed/blocked/inTesting/notExecuted, which sum to total) plus passRate and completionRate.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Optional status filter"
+          },
+          "search": {
+            "type": "string",
+            "description": "Optional name search"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "list_external_links",
+      "description": "List external ticket links for a given entity, optionally filtered by provider.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "type": "string",
+            "enum": [
+              "case",
+              "execution",
+              "release",
+              "launch"
+            ]
+          },
+          "entityId": {
+            "description": "Entity ID (numeric for case, UUID otherwise)."
+          },
+          "provider": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Optional provider filter."
+          }
+        },
+        "required": [
+          "entityType",
+          "entityId"
+        ]
+      }
+    },
+    {
+      "name": "list_folders",
+      "description": "List all folders and suites for a project. Call this to get folder IDs needed for create_test_case. Returns a flat list with hierarchy info (parentId, path, depth). Folders can contain other folders and suites; suites are leaf nodes that contain test cases only.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to list folders from"
+          },
+          "includeDeleted": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include archived/deleted folders"
+          },
+          "includeStats": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include basic statistics (slower query)"
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "list_projects",
+      "description": "List all projects accessible to the current user. START HERE - call this first to get project IDs needed for other tools. Admins see all org projects; managers/users see only assigned projects.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_releases",
+      "description": "List releases for a project with aggregated stats for manual tests and automated launches. Supports filtering by status and search.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to list releases from"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "in_progress",
+              "completed",
+              "cancelled"
+            ],
+            "description": "Filter by release status"
+          },
+          "search": {
+            "type": "string",
+            "description": "Search in release name, version, or description"
+          },
+          "includeDeleted": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include archived releases"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Number of releases to return"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Pagination offset"
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "list_test_cases",
+      "description": "List test cases in a project with filtering and pagination. Can filter by folder, status, priority, tags, or search query. Returns available status/priority values in metadata for filter options. Each case includes a shareUrl for sharing in Slack, Jira, etc. To resolve a user-facing \"TC-30\" (displayId) to its internal numeric id, pass search: \"TC-30\" - search matches the case number and accepts the \"TC-\" prefix - then read the matching case id.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to list cases from"
+          },
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Filter by specific folder UUID. Omit to list all cases in project."
+          },
+          "status": {
+            "type": "string",
+            "description": "Filter by case status (e.g., Draft, Ready, Approved). Values are project-specific."
+          },
+          "priority": {
+            "type": "string",
+            "description": "Filter by priority (e.g., Low, Medium, High, Critical). Values are project-specific."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filter by tags (any matching tag)"
+          },
+          "search": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Search in case title, description, or case number"
+          },
+          "includeDeleted": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include archived/deleted cases"
+          },
+          "automationStatus": {
+            "type": "string",
+            "enum": [
+              "automated",
+              "not_automated"
+            ],
+            "description": "Filter by automation status: \"automated\" (has linked autotests) or \"not_automated\" (no linked autotests)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50,
+            "description": "Number of cases to return"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Pagination offset"
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "list_test_collections",
+      "description": "List test collections (manual runs) in a project with execution stats. Collections organize manual test executions for sprints, releases, or ad-hoc testing.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to list collections from"
+          },
+          "releaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Filter by release UUID"
+          },
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Filter by folder UUID. Omit to list all collections."
+          },
+          "rootOnly": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, only return collections not in any folder (root level)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_progress",
+              "completed",
+              "blocked"
+            ],
+            "description": "Filter by collection status"
+          },
+          "includeDeleted": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include archived collections"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Number of collections to return"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Pagination offset"
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "move_test_case",
+      "description": "Move a test case to a different folder within the same project. Cross-project moves are not supported.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "integer",
+            "description": "Numeric test case ID to move"
+          },
+          "targetFolderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Target folder UUID (must be in the same project)"
+          }
+        },
+        "required": [
+          "caseId",
+          "targetFolderId"
+        ]
+      }
+    },
+    {
+      "name": "remove_cases_from_collection",
+      "description": "Remove test cases from a test collection. Also deletes any step results for those executions.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "collectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Test collection UUID"
+          },
+          "caseIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "description": "Numeric test case IDs to remove (e.g., [1, 2, 3])"
+          }
+        },
+        "required": [
+          "collectionId",
+          "caseIds"
+        ]
+      }
+    },
+    {
+      "name": "remove_external_link",
+      "description": "Remove an external ticket link by its link UUID (as returned by add_external_link or list_external_links).",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "linkId"
+        ]
+      }
+    },
+    {
+      "name": "remove_source_from_execution",
+      "description": "Remove a source group (a suite, collection, or named case-group - one execution_test_run) from an execution. This deletes that group and ALL its case-run rows and step results (cascade). Get the runId (group id) from get_execution (sources[].id) or get_execution_cases (groupId). Does not delete the execution itself. Returns { removed: true }.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Execution UUID"
+          },
+          "runId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Source group UUID (execution_test_run id) to remove"
+          }
+        },
+        "required": [
+          "executionId",
+          "runId"
+        ]
+      }
+    },
+    {
+      "name": "report_case_result",
+      "description": "Record the result of running one case inside a Manual Test Execution: set per-step pass/fail and/or the case status, atomically and idempotently. Target the case by executionCaseId (from get_execution_cases) OR by executionId + caseId (numeric; if the case is in several groups, pass groupId or use executionCaseId). status: an explicit value (passed/failed/blocked/in_testing/not_executed), or \"auto\" to derive it from the steps (failed then blocked then in_testing then passed), or omit it to leave the case status unchanged (e.g. when only writing one step). steps[].status is one of not_executed/passed/failed/blocked/skipped; index is the 0-based position in the case steps. The containing source group's status auto-rolls from its cases' results: all not_executed -> not_started, some executed -> in_progress, all executed -> blocked if the group contains a blocked case, else completed (test_run_status has no failed; failures show via the group's counters). An explicit set_execution_source_status override lasts until the next report on that group recomputes it. Returns the case status, the group status, the steps written, and fresh execution progress.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionCaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The case-run row UUID (from get_execution_cases). Preferred."
+          },
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Alternative to executionCaseId: the execution UUID (with caseId)."
+          },
+          "caseId": {
+            "type": "integer",
+            "description": "Alternative to executionCaseId: the numeric case id (with executionId)."
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional: disambiguate when the case is in several source groups."
+          },
+          "status": {
+            "type": "string",
+            "description": "Case status: passed/failed/blocked/in_testing/not_executed, or \"auto\" to derive from steps, or omit to leave unchanged."
+          },
+          "steps": {
+            "type": "array",
+            "maxItems": 1000,
+            "description": "Per-step results to upsert.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "0-based step index into the case steps"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "not_executed",
+                    "passed",
+                    "failed",
+                    "blocked",
+                    "skipped"
+                  ]
+                },
+                "issueDescription": {
+                  "type": "string",
+                  "description": "Optional note / issue / Jira link for a failed step"
+                },
+                "parentCaseId": {
+                  "type": "string",
+                  "description": "Optional: set for a prerequisite (parent) case step"
+                }
+              },
+              "required": [
+                "index",
+                "status"
+              ]
+            }
+          },
+          "causedBy": {
+            "type": "string",
+            "description": "Optional: which step or thing caused failure"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional free-text notes for the case run"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "description": "Optional: time spent, in minutes"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "run_health_check",
+      "description": "Get a holistic health assessment for a project. Returns a composite health score (0-100) blending automation stability, coverage, and manual execution, plus per-dimension subScores and sections: automation (pass rate, flaky, failures), testAssets (case/suite counts, status/priority breakdown), coverage (automation rate + pass-rate trend), manualExecution (pass/fail/blocked/completion), and releases (status counts + active releases). Use include[] to limit which sections are computed.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID to assess"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90,
+            "default": 14,
+            "description": "Lookback period for analysis (default: 14 days)"
+          },
+          "include": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "automation",
+                "coverage",
+                "testAssets",
+                "manualExecution",
+                "releases"
+              ]
+            },
+            "description": "Which sections to compute. Defaults to all. The composite score uses whichever of automation/coverage/manualExecution are present and have data."
+          }
+        },
+        "required": [
+          "projectId"
+        ]
+      }
+    },
+    {
+      "name": "search_tests",
+      "description": "Search for tests by title, file path, or tags. Returns matching tests with their most recent execution status and reliability metrics. Use this to find tests related to a specific feature or area.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID"
+          },
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Search query (case-insensitive substring of the title-path array or the file path). Pass ONE title segment, e.g. \"should validate credentials\"; a \" > \"-joined path matches nothing."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "flaky",
+              "all"
+            ],
+            "default": "all",
+            "description": "Filter by recent execution status"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 7,
+            "description": "Lookback period for recent executions"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Maximum number of tests to return"
+          }
+        },
+        "required": [
+          "projectId",
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "set_execution_source_status",
+      "description": "Set the status of one source group (a collection, suite, or named case-group - the per-group status dropdown on the execution page) inside an execution. Get the runId (group id) from get_execution (sources[].id) or get_execution_cases (groupId). status is validated against the project's test_run_status values (default: not_started, in_progress, completed, blocked) - call get_project to confirm. This is the GROUP status; use report_case_result for an individual case's status.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Execution UUID"
+          },
+          "runId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Source group UUID (execution_test_run id)"
+          },
+          "status": {
+            "type": "string",
+            "description": "Group status: not_started/in_progress/completed/blocked (+ project-custom)"
+          }
+        },
+        "required": [
+          "executionId",
+          "runId",
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "suggest_test_cases",
+      "description": "Return template-based test case scaffolding for a feature description: structured ideas with titles, steps and priorities. This is pattern matching, not model output. Use it as a project-aware starting point, refine it yourself, then persist the result with create_test_case.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Project UUID for context (uses project settings for status/priority values)"
+          },
+          "featureDescription": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 5000,
+            "description": "Description of the feature to generate test cases for. Be specific about functionality, user flows, and edge cases."
+          },
+          "testType": {
+            "type": "string",
+            "enum": [
+              "functional",
+              "edge_cases",
+              "integration",
+              "regression",
+              "all"
+            ],
+            "default": "all",
+            "description": "Type of test cases to suggest"
+          },
+          "maxSuggestions": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 5,
+            "description": "Maximum number of test case suggestions"
+          }
+        },
+        "required": [
+          "projectId",
+          "featureDescription"
+        ]
+      }
+    },
+    {
+      "name": "unlink_launch_from_release",
+      "description": "Remove an automated launch from a release. The launch itself is not affected.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Release UUID"
+          },
+          "launchId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Launch/run UUID to unlink"
+          }
+        },
+        "required": [
+          "releaseId",
+          "launchId"
+        ]
+      }
+    },
+    {
+      "name": "update_execution",
+      "description": "Update a Manual Test Execution's own fields, including its overall status. Set status to in_testing while running, and passed/failed/blocked when done. status is validated against the project's execution_status values (default: not_executed, in_testing, passed, failed, blocked) - call get_project to read the exact values a project uses; do not hardcode. Does not change case results - use report_case_result for those, or set_execution_source_status for a source group's status.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Execution UUID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Execution status: not_executed/in_testing/passed/failed/blocked (+ project-custom). Use get_project to confirm valid values."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 500
+          },
+          "description": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "description": "low/medium/high/critical"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "assignedTo": {
+            "type": "string",
+            "description": "Assignee user id (must be a project member)"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "ISO date"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "ISO date (>= startDate)"
+          },
+          "releaseIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 100,
+            "description": "Optional. The COMPLETE set of releases this execution should be linked to (replace-all): existing links not in the list are removed, new ones added. Pass [] to unlink all. Omit to leave links untouched. Release ids must belong to the execution's project."
+          }
+        },
+        "required": [
+          "executionId"
+        ]
+      }
+    },
+    {
+      "name": "update_folder",
+      "description": "Update a folder name and/or move it to a different parent. Set parentId to null to move to root level.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Folder UUID to update"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "New folder name"
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "New parent folder UUID. Set to null to move to root level. Omit to keep current parent."
+          }
+        },
+        "required": [
+          "folderId"
+        ]
+      }
+    },
+    {
+      "name": "update_release",
+      "description": "Update release metadata. Only provided fields are updated; omitted fields remain unchanged. Use get_release first to see current values.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Release UUID to update"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "New release name"
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "New version string"
+          },
+          "description": {
+            "type": "string",
+            "description": "New description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "in_progress",
+              "completed",
+              "cancelled"
+            ],
+            "description": "New status: planned, in_progress, completed, or cancelled. Setting to \"completed\" auto-sets completed_at timestamp."
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "description": "New start date (YYYY-MM-DD)"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "description": "New end date (YYYY-MM-DD)"
+          }
+        },
+        "required": [
+          "releaseId"
+        ]
+      }
+    },
+    {
+      "name": "update_test_case",
+      "description": "Update an existing test case. Only provided fields are updated; omitted fields remain unchanged. Returns the full updated case object including shareUrl. TIP: Use get_test_case first to see current values.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "integer",
+            "description": "Internal numeric test case id to update - NOT the user-facing \"TC-N\"/caseNumber. If the user gave you a \"TC-N\", resolve it via list_test_cases(search: \"TC-N\") first."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "New title for the case"
+          },
+          "description": {
+            "type": "string",
+            "description": "New description. Supports Markdown: **bold**, *italic*, ~~strikethrough~~, inline `code`, # / ## / ### headings, \"- \" bullet and \"1. \" numbered lists, [text](url) links, and \"> \" blockquotes. Plain text works too. Images and fenced code blocks are not supported."
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "description": "Step action. Supports Markdown (**bold**, *italic*, `code`, lists, [links](url)). Plain text is fine."
+                },
+                "expected": {
+                  "type": "string",
+                  "description": "Expected result. Supports Markdown (**bold**, *italic*, `code`, lists, [links](url)). Plain text is fine."
+                }
+              }
+            },
+            "description": "Replace all steps with this array"
+          },
+          "status": {
+            "type": "string",
+            "description": "New status. Typical values: Draft, Ready, Approved, Deprecated. Check list_test_cases meta.availableStatuses for project-specific values."
+          },
+          "priority": {
+            "type": "string",
+            "description": "New priority. Typical values: Low, Medium, High, Critical. Check list_test_cases meta.availablePriorities for project-specific values."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Replace all tags with this array"
+          },
+          "dependsOn": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Set dependency to another numeric case ID, or null to remove dependency"
+          },
+          "customFields": {
+            "type": "object",
+            "description": "Custom field values (replaces all existing custom fields)"
+          }
+        },
+        "required": [
+          "caseId"
+        ]
+      }
+    },
+    {
+      "name": "update_test_collection",
+      "description": "Update test collection metadata. Only provided fields are updated; omitted fields remain unchanged. Use get_test_collection first to see current values.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "collectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Test collection UUID to update"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "New collection name"
+          },
+          "description": {
+            "type": "string",
+            "description": "New description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_progress",
+              "completed",
+              "blocked"
+            ],
+            "description": "New status: not_started, in_progress, completed, or blocked."
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "description": "New priority: low, medium, high, or critical."
+          },
+          "environment": {
+            "type": "string",
+            "description": "New environment"
+          },
+          "assignedTo": {
+            "type": "string",
+            "description": "Email address of the assigned tester (or empty to unassign)"
+          }
+        },
+        "required": [
+          "collectionId"
+        ]
+      }
+    }
+  ],
+  "prompts": [
+    {
+      "name": "analyze_flaky_tests",
+      "description": "Investigate flaky tests in a project and suggest fixes. Analyzes patterns, identifies root causes, and provides actionable recommendations.",
+      "arguments": [
+        {
+          "name": "project",
+          "description": "Project name or UUID. Optional - if omitted, auto-selects when you have a single project, otherwise the prompt asks which project to use.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "debug_test_failure",
+      "description": "Debug a specific test failure by analyzing error messages, stack traces, and execution history to identify the root cause.",
+      "arguments": [
+        {
+          "name": "project",
+          "description": "Project name or UUID. Optional - if omitted, auto-selects when you have a single project, otherwise the prompt asks which project to use.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "generate_test_cases",
+      "description": "Generate test case suggestions for a feature. Describe the feature in chat after selecting this prompt.",
+      "arguments": [
+        {
+          "name": "project",
+          "description": "Project name or UUID. Optional - if omitted, auto-selects when you have a single project, otherwise the prompt asks which project to use.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "investigate_regression",
+      "description": "Investigate a test regression by comparing recent runs, identifying when the test started failing, and analyzing code changes.",
+      "arguments": [
+        {
+          "name": "project",
+          "description": "Project name or UUID. Optional - if omitted, auto-selects when you have a single project, otherwise the prompt asks which project to use.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "release_readiness",
+      "description": "Assess if a release is ready to ship by checking test coverage, pass rates, blocking issues, and manual test completion.",
+      "arguments": [
+        {
+          "name": "project",
+          "description": "Project name or UUID. Optional - if omitted, auto-selects when you have a single project, otherwise the prompt asks which project to use.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "run_manual_execution",
+      "description": "Run a Manual Test Execution end to end: mark it in progress, go case by case (driving the app, e.g. via Playwright), report per-step and per-case results, then complete it.",
+      "arguments": [
+        {
+          "name": "project",
+          "description": "Project name or UUID. Optional - if omitted, auto-selects when you have a single project, otherwise the prompt asks which project to use.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "weekly_health_report",
+      "description": "Generate a comprehensive weekly test health report for a project including trends, regressions, flaky tests, and recommendations.",
+      "arguments": [
+        {
+          "name": "project",
+          "description": "Project name or UUID. Optional - if omitted, auto-selects when you have a single project, otherwise the prompt asks which project to use.",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "uri": "m00n://projects",
+      "name": "All Projects",
+      "description": "List of all accessible projects with basic info",
+      "mimeType": "application/json"
+    }
+  ],
+  "resourceTemplates": [
+    {
+      "uriTemplate": "m00n://cases/{caseId}/content",
+      "name": "Test Case Content",
+      "description": "Test case details including steps, expected results, and metadata",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uriTemplate": "m00n://launches/{launchId}/report",
+      "name": "Launch Report",
+      "description": "Full test run report with pass/fail summary and failed test details",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uriTemplate": "m00n://projects/{projectId}/failing-tests",
+      "name": "Currently Failing Tests",
+      "description": "Tests that failed in the most recent run, grouped by error type",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uriTemplate": "m00n://projects/{projectId}/flaky-tests",
+      "name": "Flaky Tests Report",
+      "description": "List of flaky tests in the project with failure patterns and last seen dates",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uriTemplate": "m00n://projects/{projectId}/folder-tree",
+      "name": "Folder Structure",
+      "description": "Hierarchical folder/suite structure for test cases",
+      "mimeType": "application/json"
+    },
+    {
+      "uriTemplate": "m00n://projects/{projectId}/summary",
+      "name": "Project Health Summary",
+      "description": "Project health overview including pass rate trends, flaky tests count, and recent activity",
+      "mimeType": "application/json"
+    },
+    {
+      "uriTemplate": "m00n://releases/{releaseId}/summary",
+      "name": "Release Summary",
+      "description": "Release health overview with linked test runs and automated launch results",
+      "mimeType": "application/json"
+    }
+  ]
+}

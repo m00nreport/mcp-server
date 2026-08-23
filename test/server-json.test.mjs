@@ -123,7 +123,10 @@ test('server.json declares exactly the environment variables the code reads', ()
   assert.deepEqual(phantom, [], `declared but never read: ${phantom.join(', ')}`);
 });
 
-test('the two variables the server cannot start without are the required ones', () => {
+test('the two variables a client must supply are the required ones', () => {
+  // Named for the registry's reader, not for startup: since 1.5.0 the server does
+  // start without them, in preview mode. isRequired stays true because a client
+  // configuring this server for real does have to supply both.
   const required = declaredEnv.filter((v) => v.isRequired).map((v) => v.name).sort();
   assert.deepEqual(required, ['M00N_API_KEY', 'M00N_API_URL']);
 });
