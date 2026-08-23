@@ -27,7 +27,7 @@ Node 20 or newer, and any MCP-capable client.
 
 No install step. The client launches it with `npx`, as configured below.
 
-To pin a version in a shared or CI environment, append one to the package name in `args`, for example `["-y", "@m00nsolutions/mcp-server@1.4.0"]`. `npm view @m00nsolutions/mcp-server versions` lists what is published; the number above is only an example of the syntax.
+To pin a version in a shared or CI environment, append one to the package name in `args`, like `["-y", "@m00nsolutions/mcp-server@<version>"]`. `npm view @m00nsolutions/mcp-server versions` lists what is published. A placeholder rather than a number on purpose: a concrete example here goes stale on the next release, and a stale one recommends pinning to a version that no longer has the current fixes.
 
 ## Quick Start
 

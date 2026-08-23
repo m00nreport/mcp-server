@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseIntEnv } from '../dist/config.js';
+import { parseIntEnv, loadConfig } from '../dist/config.js';
 
 /**
  * How a number arrives from the environment.
@@ -67,4 +67,53 @@ test('a rejected value is announced, not swallowed', () => {
 
   assert.ok(messages.length > 0, 'the user must be told the value was ignored');
   assert.ok(messages.join(' ').includes('60s'), 'and told which value');
+});
+
+/**
+ * An http:// instance sends the MCP key in clear on every request, with no
+ * redirect involved. The warning is the only thing that says so, and the
+ * loopback exemption is exactly the kind of list that rots quietly.
+ */
+
+/** Load a config with these variables and return whatever reached stderr. */
+function stderrFromLoad(vars) {
+  const saved = {};
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith('M00N_')) { saved[key] = process.env[key]; delete process.env[key]; }
+  }
+  Object.assign(process.env, vars);
+
+  const lines = [];
+  const original = console.error;
+  console.error = (...args) => lines.push(args.join(' '));
+  try {
+    loadConfig();
+  } catch {
+    // A rejected config is not what these cases are about.
+  } finally {
+    console.error = original;
+    for (const key of Object.keys(vars)) delete process.env[key];
+    Object.assign(process.env, saved);
+  }
+  return lines.join('\n');
+}
+
+const KEY = 'm00n_mcp_000000000000000000000000000000000000000000000000';
+
+test('an http instance on a remote host warns that the key is in clear', () => {
+  const out = stderrFromLoad({ M00N_API_URL: 'http://reports.example.com', M00N_API_KEY: KEY });
+  assert.match(out, /WARNING/);
+  assert.match(out, /unencrypted/);
+});
+
+test('https says nothing', () => {
+  const out = stderrFromLoad({ M00N_API_URL: 'https://m00nreport.com', M00N_API_KEY: KEY });
+  assert.doesNotMatch(out, /WARNING/);
+});
+
+test('loopback says nothing, because nothing leaves the machine', () => {
+  for (const url of ['http://localhost:3000', 'http://127.0.0.1:4000', 'http://api.localhost']) {
+    const out = stderrFromLoad({ M00N_API_URL: url, M00N_API_KEY: KEY });
+    assert.doesNotMatch(out, /WARNING/, `${url} warned and should not have`);
+  }
 });

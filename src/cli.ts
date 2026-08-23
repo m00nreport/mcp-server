@@ -43,38 +43,34 @@ async function main(): Promise<void> {
 
 /** The setup box, shown only when the configuration itself is missing or invalid. */
 function printSetupHelp(): void {
-  {
-    {
-      console.error('\n' +
-        '╔═══════════════════════════════════════════════════════════════╗\n' +
-        '║                    CONFIGURATION REQUIRED                     ║\n' +
-        '╠═══════════════════════════════════════════════════════════════╣\n' +
-        '║  Set the following environment variables:                     ║\n' +
-        '║                                                               ║\n' +
-        '║  M00N_API_URL  - Your M00N Report URL                         ║\n' +
-        '║                  (e.g., https://m00nreport.com)           ║\n' +
-        '║                                                               ║\n' +
-        '║  M00N_API_KEY  - MCP key from Settings → MCP Keys             ║\n' +
-        '║                  (starts with m00n_mcp_)                      ║\n' +
-        '║                                                               ║\n' +
-        '║  For Cursor, add to your MCP config:                          ║\n' +
-        '║                                                               ║\n' +
-        '║  {                                                            ║\n' +
-        '║    "mcpServers": {                                            ║\n' +
-        '║      "m00n": {                                                ║\n' +
-        '║        "command": "npx",                                      ║\n' +
-        '║        "args": ["@m00nsolutions/mcp-server"],                 ║\n' +
-        '║        "env": {                                               ║\n' +
-        '║          "M00N_API_URL": "https://m00nreport.com",        ║\n' +
-        '║          "M00N_API_KEY": "m00n_mcp_..."                       ║\n' +
-        '║        }                                                      ║\n' +
-        '║      }                                                        ║\n' +
-        '║    }                                                          ║\n' +
-        '║  }                                                            ║\n' +
-        '╚═══════════════════════════════════════════════════════════════╝\n'
-      );
-    }
-  }
+  console.error('\n' +
+    '╔═══════════════════════════════════════════════════════════════╗\n' +
+    '║                    CONFIGURATION REQUIRED                     ║\n' +
+    '╠═══════════════════════════════════════════════════════════════╣\n' +
+    '║  Set the following environment variables:                     ║\n' +
+    '║                                                               ║\n' +
+    '║  M00N_API_URL  - Your M00N Report URL                         ║\n' +
+    '║                  (e.g., https://m00nreport.com)           ║\n' +
+    '║                                                               ║\n' +
+    '║  M00N_API_KEY  - MCP key from Settings → MCP Keys             ║\n' +
+    '║                  (starts with m00n_mcp_)                      ║\n' +
+    '║                                                               ║\n' +
+    '║  For Cursor, add to your MCP config:                          ║\n' +
+    '║                                                               ║\n' +
+    '║  {                                                            ║\n' +
+    '║    "mcpServers": {                                            ║\n' +
+    '║      "m00n": {                                                ║\n' +
+    '║        "command": "npx",                                      ║\n' +
+    '║        "args": ["@m00nsolutions/mcp-server"],                 ║\n' +
+    '║        "env": {                                               ║\n' +
+    '║          "M00N_API_URL": "https://m00nreport.com",        ║\n' +
+    '║          "M00N_API_KEY": "m00n_mcp_..."                       ║\n' +
+    '║        }                                                      ║\n' +
+    '║      }                                                        ║\n' +
+    '║    }                                                          ║\n' +
+    '║  }                                                            ║\n' +
+    '╚═══════════════════════════════════════════════════════════════╝\n'
+  );
 }
 
 // Run the main function
