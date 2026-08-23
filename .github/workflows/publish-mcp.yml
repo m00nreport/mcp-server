@@ -19,7 +19,9 @@ jobs:
       # OIDC, so no registry credential exists in this repo to leak. The token it
       # mints authorises the io.github.m00nreport namespace and nothing else.
       id-token: write
-      contents: read
+      # write, not read, for the tag and release in the last step. Nothing else
+      # here writes to the repository.
+      contents: write
 
     env:
       # Pinned rather than `latest`: this binary runs in a job holding an OIDC
@@ -91,3 +93,30 @@ jobs:
 
       - name: Publish server to MCP Registry
         run: ./mcp-publisher publish
+
+      # Last, so a tag means npm AND the registry both went through. Releases are
+      # published to npm by hand under an OTP and nothing tagged them, so the
+      # repository showed no releases at all while npm held eight versions -
+      # which is what a directory reads when it grades maintenance.
+      - name: Tag the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+
+          # Dispatching twice for one version is ordinary - a registry publish can
+          # be retried - so an existing tag is a no-op rather than a failure.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG already exists, nothing to do"
+            exit 0
+          fi
+
+          # The guard step above proved package.json here declares the version npm
+          # holds, so this tree is the released one. It can still carry commits
+          # made after the publish; tag from the publishing commit if that matters.
+          gh release create "$TAG" \
+            --target "${{ github.sha }}" \
+            --title "$TAG" \
+            --generate-notes
