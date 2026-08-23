@@ -1,0 +1,93 @@
+name: Publish to MCP Registry
+
+# Manual, deliberately. Releases to npm are made by hand under an OTP, so nothing
+# here can know that the version it is about to advertise already exists - the
+# guard step checks instead of assuming. A tag trigger would race that manual
+# publish and fail on whichever side got there first.
+#
+# Run this AFTER `npm publish` has succeeded for the version in package.json.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # OIDC, so no registry credential exists in this repo to leak. The token it
+      # mints authorises the io.github.m00nreport namespace and nothing else.
+      id-token: write
+      contents: read
+
+    env:
+      # Pinned rather than `latest`: this binary runs in a job holding an OIDC
+      # token, so it should not change under us without someone choosing it.
+      MCP_PUBLISHER_VERSION: '1.8.1'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 'lts/*'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      # Includes the server.json tests, which pin the listing to package.json and
+      # to the environment variables the code actually reads.
+      - name: Unit tests
+        run: node --test
+
+      - name: Check the npm release this listing points at
+        run: |
+          set -euo pipefail
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          EXPECTED=$(node -p "require('./server.json').name")
+
+          if ! npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "::error::npm has no $NAME@$VERSION. Publish to npm first, then run this workflow."
+            exit 1
+          fi
+
+          # The registry proves ownership by reading mcpName out of the published
+          # package. A release made before mcpName was added fails that check, and
+          # the registry error does not say which of the two sides is stale.
+          PUBLISHED=$(npm view "$NAME@$VERSION" mcpName 2>/dev/null || true)
+          if [ -z "$PUBLISHED" ]; then
+            echo "::error::$NAME@$VERSION on npm carries no mcpName. Republish with it before listing."
+            exit 1
+          fi
+          if [ "$PUBLISHED" != "$EXPECTED" ]; then
+            echo "::error::npm mcpName is '$PUBLISHED', server.json name is '$EXPECTED'."
+            exit 1
+          fi
+
+          echo "$NAME@$VERSION is on npm and declares $PUBLISHED"
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          ASSET="mcp-publisher_linux_amd64.tar.gz"
+          BASE="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}"
+
+          curl -sSfL -o "$ASSET" "$BASE/$ASSET"
+          curl -sSfL -o checksums.txt "$BASE/registry_${MCP_PUBLISHER_VERSION}_checksums.txt"
+
+          # Catches a corrupted or swapped download. It shares an origin with the
+          # binary, so it is not a signature - the pin above is what limits what
+          # can arrive here at all.
+          grep " ${ASSET}\$" checksums.txt | sha256sum -c -
+
+          tar xzf "$ASSET" mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server to MCP Registry
+        run: ./mcp-publisher publish

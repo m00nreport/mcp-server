@@ -1,0 +1,62 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.m00nreport/mcp-server",
+  "title": "M00N Report",
+  "description": "Test management over MCP: author cases, run manual executions, cut releases, read health",
+  "version": "1.4.5",
+  "repository": {
+    "url": "https://github.com/m00nreport/mcp-server",
+    "source": "github",
+    "id": "1342312311"
+  },
+  "websiteUrl": "https://m00nreport.com/documentation/mcp/quick-start",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@m00nsolutions/mcp-server",
+      "version": "1.4.5",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "M00N_API_URL",
+          "description": "Your M00N Report URL. Root origin, no /api suffix.",
+          "isRequired": true,
+          "format": "string",
+          "placeholder": "https://m00nreport.com"
+        },
+        {
+          "name": "M00N_API_KEY",
+          "description": "An MCP key from Settings. Anything without the m00n_mcp_ prefix is refused before the first request.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string",
+          "placeholder": "m00n_mcp_..."
+        },
+        {
+          "name": "M00N_DEBUG",
+          "description": "Adds per-request detail to stderr, including each tool call's arguments.",
+          "isRequired": false,
+          "format": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "M00N_TIMEOUT_MS",
+          "description": "Request timeout in milliseconds. A bare number; anything else falls back to the default.",
+          "isRequired": false,
+          "format": "number",
+          "default": "30000"
+        },
+        {
+          "name": "M00N_INSECURE_SSL",
+          "description": "Accept a self-signed certificate. Self-hosted instances only.",
+          "isRequired": false,
+          "format": "boolean",
+          "default": "false"
+        }
+      ]
+    }
+  ]
+}
