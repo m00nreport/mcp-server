@@ -1,6 +1,6 @@
 {
   "name": "@m00nsolutions/mcp-server",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "mcpName": "io.github.m00nreport/mcp-server",
   "description": "Agentic test management over MCP: an AI assistant can author test cases, plan manual executions, link automation to the cases it covers, cut releases and read project health in M00N Report, an AI-native test management platform.",
   "type": "module",

@@ -19,7 +19,7 @@ If you are not connecting from claude.ai or claude.com, use this package with an
 
 ## Requirements
 
-Node 18 or newer, and any MCP-capable client.
+Node 20 or newer, and any MCP-capable client.
 
 ## Installation
 
