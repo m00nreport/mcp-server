@@ -35,6 +35,9 @@ function serverSaid(data: ApiErrorBody | undefined): string | undefined {
   return typeof said === 'string' && said.trim().length > 0 ? said.trim() : undefined;
 }
 
+/** Statuses that name somewhere else to go. 304 and 300 and 305 do not. */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
 function headerValue(
   headers: Record<string, string | number | undefined> | undefined,
   name: string
@@ -120,6 +123,30 @@ export function describeApiError(error: unknown, context: string, apiUrl: string
 
   const status = error.response.status;
   const said = serverSaid(error.response.data);
+
+  // Redirects are refused rather than followed, so the key cannot be handed to
+  // the host on the other side. Say where it pointed: this is nearly always a
+  // URL that needs correcting, an http:// address the server upgrades or a
+  // trailing path a proxy rewrites.
+  //
+  // Only the statuses that actually relocate. 304 is a cache answer and 300 and
+  // 305 do not name a destination to follow, so calling any of them a redirect
+  // would send the reader after the wrong problem.
+  if (REDIRECT_STATUSES.has(status)) {
+    const location = headerValue(error.response.headers, 'location');
+    // A relative Location means the host is fine and only the path moved, so the
+    // advice has to differ: changing the base URL would not help.
+    const absolute = location ? /^https?:\/\//i.test(location) : false;
+    const target = location ? ` to ${location}` : '';
+    const advice = !location || absolute
+      ? 'Set M00N_API_URL to the address that answers directly.'
+      : 'That is a relative redirect, so the host is right and the path is being rewritten, ' +
+        'usually by a proxy in front of the instance.';
+    return new Error(
+      `M00N Report API at ${apiUrl} redirected${target}, and redirects are not followed ` +
+      `because the MCP key would travel with them. ${advice}`
+    );
+  }
 
   switch (status) {
     case 401:

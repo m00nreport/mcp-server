@@ -121,6 +121,11 @@ export class M00NApiClient {
         'Content-Type': 'application/json',
         'User-Agent': `m00n-mcp-server/${VERSION}`,
       },
+      // The credential rides in a custom header, and redirect followers only
+      // strip the auth headers they recognise. Following a redirect would hand
+      // the key to whatever host answered next, so do not follow one at all.
+      // A redirect surfaces as an error naming where it pointed.
+      maxRedirects: 0,
       // HTTPS agent with connection reuse and optional SSL verification skip
       httpsAgent: new https.Agent({
         rejectUnauthorized: !config.insecureSsl,

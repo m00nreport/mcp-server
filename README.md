@@ -7,6 +7,8 @@
 
 Agentic test management over MCP. This server lets an AI assistant do the work rather than read about it: author test cases, plan and populate manual test executions, link automation back to the cases it covers, cut releases and read project health in [M00N Report](https://m00nreport.com), an AI-native test management platform.
 
+[![m00nreport/mcp-server MCP server](https://glama.ai/mcp/servers/m00nreport/mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/m00nreport/mcp-server)
+
 ## Which Install Do I Need?
 
 | | This npm package (stdio) | Hosted remote connector |
@@ -25,7 +27,7 @@ Node 20 or newer, and any MCP-capable client.
 
 No install step. The client launches it with `npx`, as configured below.
 
-To pin a version in a shared or CI environment, append one to the package name in `args`, for example `["-y", "@m00nsolutions/mcp-server@1.5.0"]`. `npm view @m00nsolutions/mcp-server versions` lists what is published.
+To pin a version in a shared or CI environment, append one to the package name in `args`, for example `["-y", "@m00nsolutions/mcp-server@1.4.0"]`. `npm view @m00nsolutions/mcp-server versions` lists what is published; the number above is only an example of the syntax.
 
 ## Quick Start
 
@@ -173,6 +175,8 @@ Every tool call is written to an MCP audit log with a UI in the app, and per-key
 | Tools are listed but every call answers `running unconfigured` | Neither `M00N_API_URL` nor `M00N_API_KEY` reached the process, so it started in preview mode. Check the `env` block actually applies to this server. |
 | `M00N_API_KEY should start with "m00n_mcp_"` | That is a project API key, the kind the test reporters use. MCP keys are separate: Settings -> MCP Keys. |
 | `Authentication failed: Invalid or expired MCP key` | The key is wrong, revoked, or from another instance. Or `M00N_API_URL` carries an `/api` suffix, which makes every request 401 however good the key is. Check the URL first, then issue a new key. |
+| `WARNING: M00N_API_URL is http://...` | Not an error, and the server keeps running. It means the key is sent unencrypted on every request. Use `https` unless the instance is on a trusted private network. Loopback addresses do not warn. |
+| `... redirected to ...` | The URL answers with a redirect, and redirects are not followed because the MCP key would travel to wherever they point. Set `M00N_API_URL` to the address that answers directly, usually the `https://` form. |
 | `Cannot connect to M00N Report API at ...` | Nothing is listening at that URL. The instance is down, or the port is closed to you. |
 | `Cannot resolve M00N Report API host` | The hostname does not resolve. A typo, or a private name reached from outside its network. |
 | `Request to M00N Report API timed out` | Raise `M00N_TIMEOUT_MS`, or check the network path. |
@@ -189,6 +193,9 @@ The server logs to stderr with or without `M00N_DEBUG`, and most clients surface
 - **`GET /api/health` must be reachable when configured.** It is checked before anything else and a failure stops the server, so a proxy forwarding only `/api/mcp/*` shows no tools at all even though every tool would work.
 - **A key scoped to zero tools does not start.** The server exits rather than connecting with an empty list. This is the configured path; with no credentials at all it starts in preview mode instead.
 - **Prompts and resources are optional.** If their listings fail, the server still starts, with the reason on stderr, and the client sees none of them for the whole session.
+- **Redirects are refused, not followed.** The key rides in a custom header, and redirect
+  followers strip only the auth headers they recognise, so following one would hand the key to
+  whatever host answered next. A redirect is reported with the address it pointed at.
 - **stdio only.** For an HTTP transport, use the hosted connector.
 
 ## Support

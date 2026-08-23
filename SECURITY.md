@@ -30,21 +30,27 @@ than letting the report go quiet.
 
 ## Scope
 
-This repository is the M00N Report MCP server. It runs inside your test process and talks to a M00N
-Report ingest service over HTTPS.
+This repository is the M00N Report MCP server. An MCP client launches it as a
+local process, it speaks the Model Context Protocol on stdio, and it calls a
+M00N Report instance over HTTPS using an MCP key.
 
 In scope, and the areas worth looking at hardest:
 
-- Anything that discloses the project API key, or a URL carrying it, to a place
-  it does not belong: logs, a third-party origin, an error message, a crash dump.
-- Anything that lets one project's key read or write another project's data.
-- Anything that makes the server execute data it received from a server as code.
-- Anything reachable through a malicious or compromised ingest endpoint, since
-  the server URL is configuration and a CI job may be pointed anywhere.
+- Anything that discloses the MCP key, or a URL carrying it, to a place it does
+  not belong: stdout, a log line, an error message, a crash dump, or a host
+  other than the one configured.
+- Anything that lets a key reach data outside the permissions it was scoped to.
+- Anything that makes this process execute data it received, from the instance
+  or from the client, as code.
+- Anything reachable through a malicious or compromised instance, since
+  `M00N_API_URL` is configuration and can be pointed anywhere.
+- Anything that lets a tool call, a prompt or a resource read escape the
+  protocol: writing to stdout would corrupt the MCP stream itself.
 
-Out of scope: the hosted M00N Report service itself, which has its own reporting
-path at https://m00nreport.com; and reports that consist only of an automated
-scanner's output with no demonstrated impact.
+Out of scope: the hosted M00N Report service, which has its own reporting path
+at https://m00nreport.com; the test reporter packages, which are separate
+repositories; and reports that consist only of an automated scanner's output
+with no demonstrated impact.
 
 ## Supported versions
 

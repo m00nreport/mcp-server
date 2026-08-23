@@ -61,7 +61,33 @@ export function loadConfig(): Config {
     );
   }
 
+  warnIfPlaintext(result.data.apiUrl);
   return result.data;
+}
+
+/**
+ * An http:// instance sends the MCP key in clear on every request, and no
+ * redirect is involved: the first request already carries it. Loopback is
+ * exempt because nothing leaves the machine.
+ */
+function warnIfPlaintext(apiUrl: string): void {
+  let host: string;
+  try {
+    const parsed = new URL(apiUrl);
+    if (parsed.protocol !== 'http:') return;
+    host = parsed.hostname;
+  } catch {
+    return;
+  }
+
+  const loopback =
+    host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.localhost');
+  if (loopback) return;
+
+  console.error(
+    `[m00n-mcp] WARNING: M00N_API_URL is http://${host}, so your MCP key is sent unencrypted ` +
+    'on every request. Use https unless this is a trusted private network.'
+  );
 }
 
 /**

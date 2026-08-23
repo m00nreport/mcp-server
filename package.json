@@ -1,6 +1,6 @@
 {
   "name": "@m00nsolutions/mcp-server",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "mcpName": "io.github.m00nreport/mcp-server",
   "description": "Agentic test management over MCP: an AI assistant can author test cases, plan manual executions, link automation to the cases it covers, cut releases and read project health in M00N Report, an AI-native test management platform.",
   "type": "module",
@@ -21,7 +21,7 @@
     "snapshot:refresh": "node scripts/refresh-snapshot.mjs",
     "prepublishOnly": "npm test",
     "clean": "rimraf dist",
-    "test": "npm run build && node --test"
+    "test": "npm run build && node scripts/run-tests.mjs"
   },
   "keywords": [
     "mcp",
@@ -56,7 +56,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "axios": "^1.19.0",
-    "zod": "^3.22.0"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
