@@ -3,7 +3,7 @@
   "name": "io.github.m00nreport/mcp-server",
   "title": "M00N Report",
   "description": "Test management over MCP: author cases, run manual executions, cut releases, read health",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "repository": {
     "url": "https://github.com/m00nreport/mcp-server",
     "source": "github",
@@ -15,7 +15,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@m00nsolutions/mcp-server",
-      "version": "1.5.2",
+      "version": "1.5.3",
       "transport": {
         "type": "stdio"
       },
