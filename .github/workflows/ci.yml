@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only by default. Nothing here publishes, pushes or comments, and a
+# pull request from a fork runs with this same token - so the narrower it is,
+# the less a hostile PR can reach. Raise it per job if that ever changes.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
