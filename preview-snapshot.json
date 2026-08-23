@@ -108,7 +108,7 @@
     },
     {
       "name": "add_external_link",
-      "description": "Link any test entity (case/execution/release/launch) to an external ticket in Jira, Linear, GitHub, GitLab, or any other system. Returns the link record: id (the link UUID that remove_external_link takes), provider, externalId, externalUrl, externalTitle, externalStatus, linkType, providerMetadata, createdAt. Idempotent: the same provider plus externalId on the same entity refreshes the stored URL and title and returns that link instead of adding a duplicate. Provider jira has a side effect: title and canonical URL are read from the Jira API, and when the organization has remote links enabled a Remote Link is pushed back onto the Jira issue, so a failure there comes back as remoteLinkWarning while the local link still stands. Call list_external_links to see what an entity is already linked to and to get link ids, and remove_external_link to delete one by its link UUID.",
+      "description": "Link any test entity (case/execution/release/launch) to an external ticket in Jira, Linear, GitHub, GitLab, or any other system. Returns the link record: id (the link UUID that remove_external_link takes), provider, externalId, externalUrl, externalTitle, externalStatus, linkType, providerMetadata, createdAt. Idempotent: the same provider plus externalId on the same entity refreshes the stored URL and title and returns that link instead of adding a duplicate. Provider jira REQUIRES the issue to exist in the connected Jira: the key is looked up FIRST and an unknown one fails the whole call with 400 and stores nothing, whatever externalUrl you supply. Once it resolves, title and canonical URL are read from the Jira API, and when the organization has remote links enabled a Remote Link is pushed back onto the Jira issue, so a failure there comes back as remoteLinkWarning while the local link still stands. Call list_external_links to see what an entity is already linked to and to get link ids, and remove_external_link to delete one by its link UUID.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -143,7 +143,7 @@
           "externalUrl": {
             "type": "string",
             "format": "uri",
-            "description": "Full URL to the external ticket. Required for non-Jira providers. Optional for Jira (the canonical URL is fetched from the Jira API)."
+            "description": "Full URL to the external ticket. Required for non-Jira providers. IGNORED for Jira: the canonical URL is always fetched from the Jira API, and supplying one neither skips the issue lookup nor rescues an unknown key."
           },
           "externalTitle": {
             "type": "string",
@@ -206,7 +206,7 @@
     },
     {
       "name": "bulk_update_cases",
-      "description": "Update multiple test cases at once. Supports updating status, priority, and tags for a batch of cases. All cases must belong to the same project.",
+      "description": "Update many test cases in one call - status, priority and tags - up to 100 at a time, all belonging to the same project. Returns updated, skipped, notFound and an errors array. Two different failure modes, and only one of them is all-or-nothing. Unknown or archived ids do NOT stop the batch: they land in notFound and in errors while every other case is still written, so read updated rather than treating the call as a whole. An unrecognised status or priority value, or ids spanning two projects, is rejected outright with nothing written. Each field is replace-all across the batch and there is no undo, so snapshot the current values with list_test_cases first if you may need to put them back.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -230,7 +230,7 @@
             "properties": {
               "status": {
                 "type": "string",
-                "description": "New status for all cases (e.g., \"Ready\", \"Approved\")"
+                "description": "New status applied to every case in the batch. The vocabulary is per-project - read meta.availableStatuses from list_test_cases, or call get_project, and send a value from that list. An unrecognised value is rejected and NO case is updated."
               },
               "priority": {
                 "type": "string",
@@ -403,14 +403,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "planned",
-              "in_progress",
-              "completed",
-              "cancelled"
-            ],
-            "default": "planned",
-            "description": "OPTIONAL - defaults to \"planned\". Valid: planned, in_progress, completed, cancelled."
+            "description": "Optional. Release status from the project vocabulary, typically planned, in_progress, completed or cancelled, plus any the project added; call get_project for the list. Omit to use whichever value the project marks as its default."
           },
           "startDate": {
             "type": "string",
@@ -431,7 +424,7 @@
     },
     {
       "name": "create_test_case",
-      "description": "Create a new test case in a test suite. Test cases MUST live inside a suite (not a bare folder). You can provide either: (A) a folderId pointing to an existing suite, or (B) a projectId with optional folderName/suiteName to auto-create the folder→suite hierarchy. If folderId points to a folder (not a suite), a suite is auto-created inside it. Returns the full created case object including shareUrl. Tags are auto-created if they do not exist. IMPORTANT: Omit status and priority to use sensible defaults (Draft, Medium).",
+      "description": "Create a new test case in a test suite. Test cases MUST live inside a suite (not a bare folder). You can provide either: (A) a folderId pointing to an existing suite, or (B) a projectId with optional folderName/suiteName to auto-create the folder→suite hierarchy. If folderId points to a folder (not a suite), a suite is auto-created inside it. Returns the full created case object including shareUrl. Tags are auto-created if they do not exist. IMPORTANT: omit status and priority and the case takes whichever values THIS PROJECT marks as its defaults, which are Draft and Medium only until a project edits them. Call get_project to see what a given project uses.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -490,13 +483,11 @@
           },
           "status": {
             "type": "string",
-            "default": "Draft",
-            "description": "OPTIONAL - defaults to \"Draft\". Only specify if user explicitly requests a different status. Valid values vary by project (typically: Draft, Ready, Approved, Deprecated)."
+            "description": "Optional. Omit it and the case takes whichever value the project marks as its default, which is what the UI does. The vocabulary is per-project and a project may have renamed it or added its own, so call get_project for this project list and send a value from it rather than guessing."
           },
           "priority": {
             "type": "string",
-            "default": "Medium",
-            "description": "OPTIONAL - defaults to \"Medium\". Only specify if user explicitly requests a different priority. Valid values vary by project (typically: Low, Medium, High, Critical)."
+            "description": "Optional. Omit it and the case takes whichever value the project marks as its default. The vocabulary is per-project, so call get_project for this project list and send a value from it rather than guessing."
           },
           "tags": {
             "type": "array",
@@ -562,7 +553,7 @@
     },
     {
       "name": "create_test_collection",
-      "description": "Create a Test Collection and optionally add test cases to it. This is one Test Collection, NOT the top-level Executions-page container - use create_execution for that (an execution can then include this collection via add_collections_to_execution). Returns the created collection with count of added tests. Omit priority to default to \"medium\".",
+      "description": "Create a Test Collection and optionally add test cases to it. This is one Test Collection, NOT the top-level Executions-page container - use create_execution for that (an execution can then include this collection via add_collections_to_execution). Returns the created collection with count of added tests. Omit priority to default to \"medium\". A new Collection always starts at status not_started and there is no status argument here: use update_test_collection if it needs to start anywhere else, which is a second call.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -600,13 +591,12 @@
           "priority": {
             "type": "string",
             "enum": [
-              "low",
-              "medium",
+              "critical",
               "high",
-              "critical"
+              "medium",
+              "low"
             ],
-            "default": "medium",
-            "description": "OPTIONAL - defaults to \"medium\". Valid: low, medium, high, critical."
+            "description": "Optional, defaults to medium. Unlike a case priority, a collection priority is NOT project-configurable: the storage layer accepts only these four, in lowercase, so a project-custom case priority cannot be used here. Matching ignores case, and the value is stored lowercase."
           },
           "environment": {
             "type": "string",
@@ -632,7 +622,7 @@
     },
     {
       "name": "delete_execution",
-      "description": "Soft-delete an entire Manual Test Execution (and unlink any Test Collections that pointed to it). Reversible only via support/DB - use with care. To remove just one source group instead, use remove_source_from_execution. Returns { deleted: true }.",
+      "description": "Soft-delete an entire Manual Test Execution, and unlink any Test Collections that pointed to it. The Collections themselves, and the suites and cases behind every source, are left intact: only the execution and its result rows go. Reversible only via support or the database, so use with care. IMPORTANT: do any per-source cleanup FIRST. Once the execution is deleted, remove_source_from_execution answers Execution not found, so there is no route back to its sources. To remove just one source group instead of the whole execution, use remove_source_from_execution. Returns deleted: true.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true,
@@ -746,7 +736,7 @@
     },
     {
       "name": "export_report",
-      "description": "Generate a formatted report for a project. Supports summary, failures, trends, and release reports in markdown or JSON. Returns the report content as a string. NOTE: reportType \"release\" requires the releaseId argument (get it from list_releases).",
+      "description": "Generate a formatted report for a project. Supports summary, failures, trends, and release reports in markdown or JSON. Returns the report content as a string. The summary report carries a runs block of total, passed and failed, which counts LAUNCHES and does not add up: a launch stored as finished, running or interrupted is in total and in neither bucket, exactly as get_launches_statistics explains. It also carries a tests block of total, passed, failed, skipped, flaky and passRate, where passRate is (passed + flaky) / total: flaky counts as a pass because the test passed on a retry, and total excludes skipped, so passed + failed + flaky adds back to total and the figure can be checked by hand. It is floored to two decimals rather than rounded, so a period with a single failure never prints as a flat 100 - which also means it can sit a hundredth below the same rate from get_launches_statistics, which rounds. NOTE: reportType \"release\" requires the releaseId argument (get it from list_releases) and ignores days, since it covers everything linked to the release however old. It reports manualTesting with runCount, totalTests, passed, failed, blocked, inTesting and notExecuted, and automation with launchCount, totalTests, passedTests, failedTests, skippedTests, flakyTests and passRate.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -801,7 +791,7 @@
     },
     {
       "name": "get_case_execution_history",
-      "description": "Get how one manual test case has fared over time, across every Manual Test Execution and release it appeared in, newest first. Returns the executions it was part of with the status recorded each time, plus totalExecutions and passRate. totalExecutions counts memberships, including times the case was added and never run, while passRate is computed over the rows actually executed, so the two do not divide into each other. IMPORTANT: days defaults to 30, so a case last tested longer ago returns almost nothing and reads as never tested; pass days explicitly for the full history. This covers MANUAL results only: use get_test_history for an automated test across launches, and get_execution_cases for the rows inside one execution.",
+      "description": "Get how one manual test case has fared over time, across every Manual Test Execution and release it appeared in, newest first. Returns executions and summary. The headline figures are NESTED under summary, not at the top level: summary carries totalExecutions, executedCount, passed, failed, blocked, inTesting, notExecuted and passRate. totalExecutions counts memberships, including times the case was added and never run. executedCount is every row that has actually been touched, which INCLUDES rows still in_testing, so passed + failed + blocked + notExecuted can come to less than totalExecutions and the shortfall is inTesting. passRate is passed divided by executedCount, so an unfinished in_testing row sits in the denominator and drags the rate down. That denominator is not the one list_executions uses: its progress.passRate divides by the total case count, counting never-run cases against the rate, so the two figures share a name and are not comparable. Each row carries id, status, runId, runName, executedBy, executedAt, notes and source. source is a STRING, not an object: it reads either \"standalone\", and then the row also carries executionId and executionName as siblings, or \"release\", and then it carries releaseId, releaseName and releaseVersion instead. Compare it as a string - row.source === \"release\" - because row.source.type is undefined on every row and filters silently to nothing. A row whose source is release carries releaseId, releaseName and releaseVersion but no executionId, even though it does sit inside a Manual Test Execution. It can still be traced there, by either of two joins: the row id is the same value get_execution_cases returns as executionCaseId, and the row runId is the same value get_execution returns as sources[].id. Both joins run FROM an execution, though, and nothing takes a runId or an executionCaseId and hands back the execution holding it. Use get_release on the releaseId the row does carry and match against its linkedExecutions: list_executions has NO releaseId filter, and an unrecognised argument is ignored rather than rejected, so passing one there silently returns every execution in the project. IMPORTANT: limit bounds the summary as well as the list, so those figures describe the returned page rather than the whole window, and days defaults to 30, so a case last tested longer ago returns almost nothing and reads as never tested. Pass days explicitly; 365 is the ceiling, so for a case older than a year there is no way to ask for all of its history at once. This covers MANUAL results only: use get_test_history for an automated test across launches, and get_execution_cases for the rows inside one execution.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -837,7 +827,7 @@
     },
     {
       "name": "get_coverage_gaps",
-      "description": "Identify test coverage gaps across a whole project. Returns summary (totalCases, linkedCases, unlinkedCases, automationRate), foldersWithLowCoverage (folderId, name, caseCount, linkedCount, automationRate) for folders under automationThreshold, unlinkedCases (caseId, displayId, title, status, priority, folderName) for cases with no linked autotest, and the reverse gap unlinkedAutotests - autotests seen in the most recent launches that are linked to no case. Read-only, nothing is written; close a gap afterwards with link_autotest_to_case. Pick this when the question is which cases or folders lack automation project-wide. Prefer get_feature_scan when the scope is a single Jira issue and Jira is connected, run_health_check when you want one scored assessment in which coverage is only one dimension, search_tests when you already know the autotest and want its status, and suggest_test_cases when the gap is a case that does not exist yet rather than a missing link. projectId comes from list_projects.",
+      "description": "Identify test coverage gaps across a whole project. Every count here is of LIVE cases: archived ones are excluded throughout, and a project can hold several times its reported total once includeDeleted is passed to list_test_cases. Returns summary (totalCases, linkedCases, unlinkedCases, automationRate), foldersWithLowCoverage (folderId, name, caseCount, linkedCount, automationRate) for folders under automationThreshold - counted over the cases held DIRECTLY by each folder, so leaf suites appear and the containers above them do not, whatever sits nested beneath - unlinkedCases (caseId, displayId, title, status, priority, folderName) for cases with no linked autotest, and the reverse gap unlinkedAutotests, meaning autotests seen in the most recent launches that are linked to no case. IMPORTANT: unlinkedCases is an array but unlinkedAutotests is an OBJECT, shaped launchesScanned, totalUnlinked and items. items is hard-capped at 50 rows however large totalUnlinked is and whatever limit you pass, since limit sizes unlinkedCases and does not reach it, and it is drawn only from the last recentLaunches launches, 10 by default. So a title missing from items does NOT mean it is linked: it may be beyond the cap or older than the window. Two different definitions of linked are at work in one response, so read them apart. unlinkedAutotests ALONE uses the broad one: a test counts as linked there if it was linked with link_autotest_to_case OR if its title carries a [TC-N] marker that ingest resolved onto the test row. summary.linkedCases, summary.automationRate, foldersWithLowCoverage and unlinkedCases all use the narrow one and see only explicit links, which is also what get_test_case and the automationStatus filter of list_test_cases see. A case can therefore be counted unlinked in the same payload whose unlinkedAutotests treats its marker-bound test as covered. To settle one title, read get_test_case with includeRecentExecutions: a marker-bound test shows up there against its case and nowhere else, and search_tests will not help because it returns no linkage fields at all. totalUnlinked counts DISTINCT test titles, not rows or attempts, and is scoped to the same recentLaunches window as items rather than to the whole project. Read-only, nothing is written; close a gap afterwards with link_autotest_to_case. Pick this when the question is which cases or folders lack automation project-wide. Prefer get_feature_scan when the scope is a single Jira issue and Jira is connected, run_health_check when you want one scored assessment in which coverage is only one dimension, search_tests when you already know the autotest and want its results, and suggest_test_cases when the gap is a case that does not exist yet rather than a missing link. projectId comes from list_projects.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -886,7 +876,7 @@
     },
     {
       "name": "get_execution",
-      "description": "Get one Manual Test Execution with everything attached to it. Returns execution (the container itself), sources (one entry per suite, Collection or case group added, each with id, name, sourceType, status and the case counts total, passed, failed, blocked, inTesting and notExecuted), releases, externalLinks, and progress. sourceType is what tells a suite source from a Collection source. progress carries the same counts across the whole execution PLUS passRate and completionRate; the entries in sources do not carry those two, so compute them per source if you need them. Use get_execution_cases for the individual case rows, which is also where report_case_result gets its executionCaseId; use list_executions to find an id.",
+      "description": "Get one Manual Test Execution with everything attached to it. Returns execution (the container itself), sources (one entry per suite, Collection or case group added), releases, externalLinks, and progress. Each source carries id, name, sourceType, status and the case counts total, passed, failed, blocked, inTesting and notExecuted. Two traps in there. First, sources[].id is the id of the GROUP inside this execution, not the suite or Collection id you added: it is what remove_source_from_execution and set_execution_source_status take as runId. Second, execution.status and sources[].status come from two different vocabularies, execution_status and test_run_status, so not_executed and not_started are both correct in their own place; call get_project for the values a project actually uses. And both are SET BY A PERSON, not derived from the counts beside them: an execution can read passed with all four of its cases still not_executed, and a source can read completed with seven of seven unrun or blocked with nothing blocked. Never infer one from the other - read progress and the per-source counts for what actually happened. list_executions and get_release repeat these labels unchanged, so the same caution applies wherever they appear. progress carries the same counts across the whole execution PLUS passRate and completionRate, both whole percentages from 0 to 100. Their bases are not the same and the surprising one is passRate: it is passed divided by TOTAL, so every case not yet run counts against it and an execution with one pass, one failure and one unrun case reports 33 rather than 50. completionRate is (total - notExecuted) / total. The entries in sources carry the counts but not these two, so apply the same two formulas to a source if you need them per source. Use get_execution_cases for the individual case rows, which is also where report_case_result gets its executionCaseId, and list_executions to find an id.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -909,7 +899,7 @@
     },
     {
       "name": "get_execution_cases",
-      "description": "List the individual case-run rows of a Manual Test Execution so you can report results against them. Returns each row's executionCaseId (UUID - pass to report_case_result), caseId (numeric), group, current status, the case-level result fields (notes, causedBy, durationMinutes, executedBy, executedAt), the case's externalLinks (Jira/Linear tickets, present only if you also hold integrations:read), and steps (0-based index, action, expected, current step status, issueDescription). Everything report_case_result writes reads back here. Use after add_*_to_execution and before report_case_result. Supports paging + filtering by group/status/title.",
+      "description": "List the individual case-run rows of a Manual Test Execution so you can report results against them. Returns each row with executionCaseId (a UUID, and the value report_case_result takes), caseId, caseNumber, title, group and groupId, sourceType, current status, the case-level result fields (notes, causedBy, durationMinutes, executedBy, executedAt), parentCases, the externalLinks of the case (Jira or Linear tickets, present only if you also hold integrations:read), and steps (0-based index, action, expected, current step status, issueDescription). groupId is the one to keep: it is what report_case_result wants when the same case sits in more than one source group, while group is only that group name. sourceType says whether the group came from a suite, a Test Collection or a bare set of cases. Note that the title field is called title here while get_case_execution_history calls the same thing caseTitle. caseId is null on rows whose underlying case has been deleted, so target those by executionCaseId, which is always present. executedBy here is the internal user UUID of whoever last recorded a result, not a name, and nothing on this surface resolves a user UUID - get_case_execution_history returns that same field for the same rows as an EMAIL ADDRESS, so call that one when you need to say who. It can be null even where executedAt is set, on seeded or imported results, and it records who last WROTE a result rather than who owns the case: a case row carries no assignee at all. durationMinutes is written only by report_case_result and has no control in the UI, so it is null on most rows. Everything report_case_result writes reads back here. Use after add_suites_to_execution, add_collections_to_execution or add_cases_to_execution, and before report_case_result. Supports paging and filtering by group, status or title.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -956,7 +946,7 @@
     },
     {
       "name": "get_feature_scan",
-      "description": "Get a comprehensive feature health scan by Jira issue key. Returns Jira context (summary, status, type, assignee), test coverage stats (case count, automation ratio, pass rate, risk score), linked test cases, and autotest results with recent run trends. Automatically detects issue hierarchy and aggregates child issues (2 levels deep: epic→story→subtask). Requires Jira to be connected to the organization.",
+      "description": "Get a comprehensive feature health scan by Jira issue key. Returns Jira context (summary, status, type, assignee), test coverage stats (case count, automation ratio, pass rate, risk score), linked test cases, and autotest results with recent run trends. UNITS: automationRatio, executionCoverage, autotestPassRate and manualPassRate are FRACTIONS from 0 to 1 here, so 0.2 means 20 percent. Every sibling answers in percent from 0 to 100 - get_coverage_gaps automationRate, run_health_check - so multiply before quoting one beside the other. IMPORTANT: each case row carries BOTH definitions of linked at once. automationStatus and linkedAutotestCount, and the automationRatio built from them, count only explicit links made with link_autotest_to_case, while the same row launches and lastAutotestResult also reflect a test bound by a [TC-N] title marker. So a row reading automationStatus manual with linkedAutotestCount 0 can sit beside passing automated launches: that case IS covered and was simply never linked explicitly. Read the row launches before calling a case uncovered, and treat automationRatio as a floor. Automatically detects issue hierarchy and aggregates child issues (2 levels deep: epic→story→subtask). Requires Jira to be connected to the organization.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -978,7 +968,7 @@
     },
     {
       "name": "get_folder",
-      "description": "Get one folder or suite by id. Returns id, name, type, parentId, projectId, projectName, path, depth, casesCount, childFolderCount, displayOrder, createdAt and updatedAt. casesCount counts cases DIRECTLY in this folder, so a container folder reports 0 however much sits beneath it; childFolderCount tells you whether that is the case. Set includeStats for a statistics object over the folder AND everything nested under it, which is where totalCases, automatedCases, automationRate, status and priority breakdowns, tag usage and time-based metrics live: expect statistics.totalCases to exceed casesCount. Set includeCases for the most recent cases directly in it, capped by casesLimit. Use list_folders to see the tree or find an id; use this when you have one id and want detail.",
+      "description": "Get one folder or suite by id. Returns id, name, type, parentId, projectId, projectName, path, depth, casesCount, childFolderCount, displayOrder, createdAt and updatedAt. casesCount counts cases DIRECTLY in this folder, so a container folder reports 0 however much sits beneath it; childFolderCount tells you whether that is the case. Set includeStats for a statistics object over the folder AND everything nested under it, which is where totalCases, automatedCases, automationRate, status and priority breakdowns, tag usage and time-based metrics live: expect statistics.totalCases to exceed casesCount. Cases whose status or priority is null are left out of those two breakdowns, so statusCounts and priorityCounts need not sum to totalCases, and the shortfall is the count of unset ones rather than an error. Set includeCases for the most recent cases directly in it, capped by casesLimit; they come back under recentCases, not cases. Every count here is of LIVE rows: archived cases and archived subfolders are excluded from casesCount, childFolderCount and the whole statistics object, so a suite reporting 45 can still answer with several times that through list_test_cases with includeDeleted. Use list_folders to see the tree or find an id; use this when you have one id and want detail.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1018,7 +1008,7 @@
     },
     {
       "name": "get_launch_tests",
-      "description": "Get every test inside one launch, with results, error messages and stack traces for the failures. Use this once you have a launch id, which get_launches_statistics gives you; use get_test_history to follow one test across launches instead. For each failed test that has artifacts the response carries an `attachments` array of `{ id, name, contentType, size, url }`. The `url` is fully qualified: if it is an API URL, fetch it with the same `X-MCP-Key` header you use for this server, while presigned storage URLs need no header. That is how you reach screenshots, traces, videos and source files when investigating a failure.",
+      "description": "Get every test inside one launch, with results, error messages and stack traces for the failures. IMPORTANT: rows are one per retry ATTEMPT, not one per test, so a retried test appears more than once and the row count can exceed the launch stats counts, while the stats on the launch itself count tests rather than attempts. Two traps follow, and both have produced a wrong count. First, testId is minted per ROW, so every attempt has a different one and deduplicating on testId still counts attempts: the identity of a test across its attempts is titlePath, optionally with filePath. Second, retry is 0-based but a retry:0 row is NOT guaranteed to exist - a launch can hold a retry:1 row whose first attempt was never stored - so counting rows where retry is 0 undercounts. Count distinct titlePath. Each row also carries status, previousStatus, durationMs, tags and errors. previousStatus reads superseded on an attempt a later one replaced, which looks like the clean way to filter, and is not: on a measured launch of 4472 rows, dropping the superseded ones left 4460 against 4457 real tests, because a retried attempt can carry its own earlier result there instead. The launch stats embedded in this response follow the same convention as everywhere else: total EXCLUDES skipped, so a launch with total 4417 and skipped 40 really does hold 4457 distinct tests, and passed counts first-time passes with flaky held separately. Use this once you have a launch id, which get_launches_statistics gives you; use get_test_history to follow one test across launches instead. For each failed test that has artifacts the response carries an attachments array of id, name, contentType, size and url. The url is fully qualified: if it is an API URL, fetch it with the same X-MCP-Key header you use for this server, while presigned storage URLs need no header. That is how you reach screenshots, traces, videos and source files when investigating a failure.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1046,7 +1036,7 @@
                 "interrupted"
               ]
             },
-            "description": "Filter by test status (default: all statuses)"
+            "description": "Filter by ATTEMPT-ROW status, not by how a test ended (default: all). A test that failed once and passed on retry still returns its failed row here, so counting the filtered rows, or even counting distinct titlePath over them, answers how many tests had this status at SOME attempt - never how many ended that way. A launch whose own stats.failed is 0 can return 15 failed rows across 13 titles. For tests that ENDED failed, fetch the rows unfiltered and keep the highest-retry row per titlePath, or read stats.failed on the launch itself."
           },
           "search": {
             "type": "string",
@@ -1078,7 +1068,7 @@
     },
     {
       "name": "get_launches_statistics",
-      "description": "List the launches of a project, newest first, each with its own pass, fail, skip and duration figures. Returns launches, a summary over the whole window (totalRuns, passedRuns, failedRuns, runningRuns, runPassRate, totalTests, totalPassed, totalFailed, totalSkipped, testPassRate, avgDurationSeconds), the period and filters applied, and pagination with the real total; there is no top-level total. IMPORTANT: days defaults to 30, so a project idle for longer returns an empty list, which means nothing in the window rather than nothing at all. Use limit, offset and search to page, statuses or tags to narrow. Reach for get_launches_trends when the question is about the project over time rather than about particular launches, and get_launch_tests when you have one launch and want the tests in it.",
+      "description": "List the launches of a project, newest first, each with its own pass, fail, skip and duration figures. Every launch row carries id, launch, status, startedAt, endedAt, durationSeconds, tags and stats - the NAME of the launch is in a field called launch, not title or name. The status is REPORTED by the CI job rather than derived from the numbers beside it, and it runs BOTH ways. A launch can be stored failed with stats.failed 0, because the job failed for a reason no test recorded. And a launch that reported nothing at all can be stored passed with stats.total 0 - one here sits 75 minutes after a real run that failed 145 tests, so reading the newest launch as green clears nothing and the earlier failures still stand. Check stats.total before treating a green newest launch as evidence. Never infer one from the other; to answer what failed, read the tests with get_launch_tests. Every launch row also carries a stats object of total, passed, failed, skipped, flaky, retries and running. total EXCLUDES skipped even though skipped is printed beside it, so the identity that holds is passed + failed + flaky = total; retries counts retry ATTEMPTS, not tests that were retried, which is why it can exceed flaky. Returns launches, a summary over the whole window (totalRuns, passedRuns, failedRuns, runningRuns, runPassRate, totalTests, totalPassed, totalFailed, totalSkipped, totalFlaky, testPassRate, avgDurationSeconds), the period and filters applied, and pagination with the real total; there is no top-level total. Read the two rates carefully, because they answer different questions and neither denominator is obvious. runPassRate is the share of LAUNCHES that ended green, out of totalRuns - and totalRuns is EVERY launch in the window. Only three of the end statuses have a bucket - passedRuns, failedRuns and runningRuns - so a launch stored as finished, interrupted, timedOut or completed is counted in totalRuns and in none of them, and the three need not add up to totalRuns. That shortfall is why get_launches_trends and run_health_check answer a slightly higher run pass rate over the same window: they count only launches that passed or failed, so their denominator is smaller. testPassRate is the share of TESTS, computed as (totalPassed + totalFlaky) / totalTests: flaky counts as a pass, because a flaky test passed on a retry and the launch is green on it, and totalTests already EXCLUDES skipped, so totalPassed + totalFailed + totalFlaky is the whole of it while totalSkipped sits outside. Both rates are null, not 0, when the window held nothing at all - testPassRate with no tests, runPassRate with no launches - since nought percent would read as a verdict on work that never ran. IMPORTANT: days defaults to 30, so a project idle for longer returns an empty list, which means nothing in the window rather than nothing at all. Use limit, offset and search to page, statuses or tags to narrow. Reach for get_launches_trends when the question is about the project over time rather than about particular launches, and get_launch_tests when you have one launch and want the tests in it.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1115,14 +1105,17 @@
                 "passed",
                 "failed",
                 "running",
-                "interrupted"
+                "finished",
+                "interrupted",
+                "timedOut",
+                "completed"
               ]
             },
-            "description": "Filter by run status"
+            "description": "Filter by launch status. Set by the reporters through the ingest service, so this list is fixed and not project-configurable. A launch that ended without an explicit status, and whose totals did not reconcile, is stored as finished: that is usually an empty or half-reported launch, and it counts toward totalRuns while sitting in none of the passed, failed or running buckets."
           },
           "search": {
             "type": "string",
-            "description": "Search in launch title/ID/tags"
+            "description": "Search the launch NAME (the launch field on each row), its id, or its tags. Launches carry no trigger metadata at all - nothing records that a run was nightly, on merge or manual, and there is no branch or CI-job field - so a request naming a run by its schedule can only be resolved through a name or tag the reporter happened to set, or by startedAt. If a name search comes back empty, say the run cannot be identified rather than assuming the newest launch is the one meant: three launches here carry byte-identical stats."
           },
           "limit": {
             "type": "integer",
@@ -1145,7 +1138,7 @@
     },
     {
       "name": "get_launches_trends",
-      "description": "Aggregate a project over a window: pass rate over time, the tests that fail most, the flaky ones, duration trends and the slowest tests. IMPORTANT: the pass rate here is the share of LAUNCHES that ended green, not the share of tests that passed, and the two differ widely; for the test-level figure use summary.testPassRate from get_launches_statistics. Flakiness is ranked by flip_count, the number of times a test changed result between consecutive launches, alongside instability_score which weighs how evenly it splits between pass and fail. days defaults to 30, so a quiet project returns empty series. Use include[] to compute only the sections you need and topN to size the lists. Reach for get_launches_statistics to page through individual launches, and get_launch_tests when you have one launch.",
+      "description": "Aggregate a project over a window: pass rate over time, the tests that fail most, the flaky ones, duration trends and the slowest tests. IMPORTANT: there is no single pass rate in this response. trends.passRate is a SERIES, one row per day, each carrying total_runs, passed_runs and pass_rate; to answer a question about the whole window you have to sum the daily totals yourself rather than average the daily rates, which would weight a quiet day the same as a busy one. And it is a rate over LAUNCHES that ended green, not over tests that passed, and the two differ widely; for the test-level figure use summary.testPassRate from get_launches_statistics. In the failing section, total_runs counts ATTEMPT ROWS rather than launches, so failure_rate is failed attempts over attempts and a test retried three times in one launch contributes three. That section ranks over the WHOLE window and says nothing about the present: a test that failed heavily early on and was fixed still tops the list, and no field in the row - there is no lastStatus and no lastSeen - reveals that it is green today. It answers what has failed most, never what is failing now; for that, read the newest launch with get_launch_tests. Flakiness is ranked by flip_count, the number of times a test changed result between consecutive ATTEMPTS, retries included, alongside instability_score which weighs how evenly it splits between pass and fail. Attempts, not launches: a test that fails twice and passes on the third try in every run scores high here while never once turning a launch red, and flip_count can exceed the number of launches in the window. Only passed and failed attempts are counted, so skipped and flaky rows are absent from both figures. For per-launch flipping, read get_test_history and group by runId. days defaults to 30, so a quiet project returns empty series, and the flaky, slowest and tests-by-tag sections are additionally capped at 90 days however much you pass, while the trend series itself honours the full range: so a 365-day call answers two different windows in one payload. Counts and rates in this response come back as STRINGS, total_runs as \"45\" and failure_rate as \"80.00\", so coerce them before comparing or summing. Use include[] to compute only the sections you need and topN to size the lists. Reach for get_launches_statistics to page through individual launches, and get_launch_tests when you have one launch.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1209,7 +1202,7 @@
     },
     {
       "name": "get_project",
-      "description": "Get a project's configuration: its meta, the system-field vocabularies it actually uses (statuses/priorities/environments), and its case custom-field definitions. Call this to discover the VALID status values before setting them - e.g. execution_status (execution overall), test_case_execution_status (a case in an execution), test_run_status (a source group). Values are project-customizable, so do not hardcode them. Returns { project, systemFields{ case_status, case_priority, execution_status, test_case_execution_status, test_run_status, release_status, test_environment }, customFields[] }.",
+      "description": "Get a project's configuration: its meta, the system-field vocabularies it actually uses (statuses/priorities/environments), and its case custom-field definitions. Call this to discover the VALID status and priority values before setting any of them: case_status and case_priority (test cases), execution_status (a Manual Test Execution overall), test_case_execution_status (a case inside one), test_run_status (a source group or a Test Collection), release_status (releases) and test_environment. Every one of them is project-customizable, so never hardcode a value or assume the stock list. Each entry is { value, label, isDefault }: send the VALUE to other tools, never the label, and isDefault marks what a create tool will use when you omit the field. Returns { project, systemFields{ case_status, case_priority, execution_status, test_case_execution_status, test_run_status, release_status, test_environment }, customFields[] }.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1232,7 +1225,7 @@
     },
     {
       "name": "get_release",
-      "description": "Get one release by releaseId with full detail: name, version, status, projectId, projectName, dates, and a stats rollup for linked manual executions (count, total, passed, failed, blocked, inTesting, notExecuted) and linked automated launches (count, total, passed, failed, skipped). By default it also returns the linkedExecutions and launches arrays, each entry with its own name, status, dates and per-item stats; set includeLinkedExecutions or includeLaunches to false to drop an array and keep the response small, since the stats rollup comes back either way. Use list_releases instead to browse, search or filter the releases in a project and to obtain releaseId; it returns the same rollup per release but never those two arrays, so call get_release once the release of interest is known. Read only, nothing is modified. An archived release still resolves here, unlike list_releases which hides it unless includeDeleted is set; the deleted flag in the response says which it is.",
+      "description": "Get one release by releaseId with full detail: name, version, status, projectId, projectName, dates, and a stats rollup for linked manual executions (count, total, passed, failed, blocked, inTesting, notExecuted) and linked automated launches (count, total, passed, failed, skipped). The status on a release is a label a person applied, not a verdict derived from these numbers, so read the rollup rather than the word. The manual rollup counts EXECUTIONS only: a Test Collection whose releaseId points at this release is not included and adds nothing to the counts, so a release can read total 0 while collections filed under it hold results. It also counts result ROWS rather than surviving cases: a row whose underlying case was deleted keeps its recorded result and stays in every figure here, showing up in get_execution_cases with caseId null - on one release 13 of the 16 reported passes are against cases that no longer exist. And rows are SUMMED across the linked executions with no deduplication, so a case in two executions counts twice and can read passed in one and not_executed in the other. Page get_execution_cases and count the null-caseId rows and the repeated caseIds before quoting these numbers anywhere that matters. Check list_test_collections with releaseId before reporting a release as untested. By default it also returns the linkedExecutions and launches arrays, each entry with its own name, status, dates and per-item stats; set includeLinkedExecutions or includeLaunches to false to drop an array and keep the response small, since the stats rollup comes back either way. Read the launches rollup carefully, because it does not follow the same convention as get_launches_statistics: passed here ALREADY INCLUDES flaky, there is no separate flaky field, and total excludes skipped - so passed + failed equals total exactly while skipped sits outside it, and adding skipped back appears to overshoot. Use list_releases instead to browse, search or filter the releases in a project and to obtain releaseId; it returns the same rollup per release but never those two arrays, so call get_release once the release of interest is known. Read only, nothing is modified. An archived release still resolves here, unlike list_releases which hides it unless includeDeleted is set; the deleted flag in the response says which it is.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1265,7 +1258,7 @@
     },
     {
       "name": "get_test_case",
-      "description": "Get one manual test case in full: id, caseNumber, displayId, title, description, status, priority, tags, ordered steps, folderId/folderName, projectId/projectName, dependsOn, customFields, createdAt/updatedAt and a shareUrl for pasting into Slack or Jira. Optional flags add linkedAutotests (includeLinkedAutotests, default true), recentAutotestExecutions from CI runs (includeRecentExecutions) and an edit-history audit trail (includeHistory). Read-only; nothing is modified. caseId is the internal numeric id from list_test_cases / create_test_case, not a user-facing TC-N; the project is derived from the case. Choose list_test_cases instead to browse, filter or count many cases, or to turn a TC-N into an id - it returns summaries without steps, so use it to pick the case and this tool to read it. Choose get_case_execution_history instead for how the case has fared in Manual Test Executions over time (pass rate plus an execution timeline); includeRecentExecutions here reports automated CI results only. search_tests covers automated tests, which are separate records from manual cases.",
+      "description": "Get one manual test case in full: id, caseNumber, displayId, title, description, status, priority, tags, ordered steps, folderId/folderName, projectId/projectName, dependsOn, customFields, createdAt/updatedAt and a shareUrl for pasting into Slack or Jira. Optional flags add linkedAutotests (includeLinkedAutotests, default true), recentAutotestExecutions from CI runs (includeRecentExecutions) and an edit-history audit trail (includeHistory). Read-only; nothing is modified. caseId is the internal numeric id from list_test_cases / create_test_case, not a user-facing TC-N; the project is derived from the case. Choose list_test_cases instead to browse, filter or count many cases, or to turn a TC-N into an id - it returns summaries without steps, so use it to pick the case and this tool to read it. Choose get_case_execution_history instead for how the case has fared in Manual Test Executions over time (pass rate plus an execution timeline); includeRecentExecutions here reports automated CI results only. search_tests covers automated tests, which are separate records from manual cases. IMPORTANT if you plan to write back: description and steps are RICH TEXT and do not round-trip as they arrive. Both come back as arrays of formatting nodes rather than strings, and a step reads as title and expected while create_test_case and update_test_case take action and expected. So sending a step straight back sets the wrong field to the wrong type. Send plain strings or Markdown on write and the server converts them; to edit one step, rebuild the whole steps array from your own text, since steps is replace-all.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1282,17 +1275,17 @@
           "includeHistory": {
             "type": "boolean",
             "default": false,
-            "description": "Include edit history (audit log of changes)"
+            "description": "Include the edit audit trail: field, oldValue, newValue, changeType, userName, userEmail and changedAt per entry. It is NOT a complete account of the case, for two separate reasons. COVERAGE: the trail holds only the changes it audits, and updatedAt can be newer than every entry in it - one case here carries updatedAt two months after its latest recorded change - while the case itself has no updatedBy field. VOLUME: the array is capped at the 50 most recent entries, with no truncation flag, no total and no way to page further back, so a trail of exactly 50 IS a truncated one and its oldest entry is not the oldest change. Two traps inside the rows as well: an entry records that a field was SUBMITTED rather than that its value moved, so oldValue and newValue are often identical - 28 of 50 on one case here - and userName is frequently just the email address again. So this answers what changed and by whom AMONG AUDITED, RECENT changes, and cannot always answer who last touched the case."
           },
           "includeLinkedAutotests": {
             "type": "boolean",
             "default": true,
-            "description": "Include explicitly linked autotest paths"
+            "description": "Include autotest links made with link_autotest_to_case. These are the only links reported here, and they are not the only links that exist: a reporter can also bind a test to a case by putting a [TC-N] marker in the test title, which ingest resolves to a case id on the test row itself. get_coverage_gaps counts that second kind as covered in its unlinkedAutotests section ONLY: its summary, automationRate, foldersWithLowCoverage and unlinkedCases all use the same narrow, explicit-link definition this list does. So a test can be absent here and still be linked, and a case can sit in unlinkedCases while a marker-bound test covers it, which makes automationRate a floor rather than the whole picture."
           },
           "includeRecentExecutions": {
             "type": "boolean",
             "default": false,
-            "description": "Include recent autotest execution results from CI runs"
+            "description": "Include autotest results for this case from CI. There is NO time window: the latest result per distinct test title is returned, up to 20, with no date cutoff at all - so an empty array is DEFINITIVE and means no automated test has ever reported against this case, rather than none lately. This is also the only place a test bound to the case by a [TC-N] title marker appears, which makes it the arbiter when linkedAutotests comes back empty."
           }
         },
         "required": [
@@ -1302,7 +1295,7 @@
     },
     {
       "name": "get_test_collection",
-      "description": "Get one Test Collection by UUID. Returns metadata (name, status, priority, environment, assignedTo, project, folder, release, dates), stats (totalTests, passed, failed, blocked, notExecuted, skipped, inTesting), and unless includeTestDetails is false a tests array of caseId, caseNumber, caseTitle, casePriority, status, executedBy, executedAt, notes. Read-only, changes nothing. collectionId comes from list_test_collections, which is the tool for finding or comparing collections across a project rather than inspecting one. For a Manual Test Execution (the Executions-page container) use get_execution and get_execution_cases instead - a different entity, and only the rows returned by get_execution_cases can be reported against with report_case_result.",
+      "description": "Get one Test Collection by UUID. Returns metadata (name, status, priority, environment, assignedTo, project, folder, release, dates), stats (totalTests, passed, failed, blocked, notExecuted, skipped, inTesting), and unless includeTestDetails is false a tests array of caseId, caseNumber, caseTitle, casePriority, status, executedBy, executedAt, notes. Each of those rows also carries an executionId, which is the id of the row itself inside this Collection and NOT a Manual Test Execution id: passing it to get_execution finds nothing. Read-only, changes nothing. collectionId comes from list_test_collections, which is the tool for finding or comparing collections across a project rather than inspecting one. For a Manual Test Execution (the Executions-page container) use get_execution and get_execution_cases instead - a different entity, and only the rows returned by get_execution_cases can be reported against with report_case_result.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1330,7 +1323,7 @@
     },
     {
       "name": "get_test_history",
-      "description": "Get the history of one AUTOMATED test across launches, newest first, with the result and duration each time, plus totalExecutions, passRate, flipCount and reliabilityStatus. IMPORTANT: limit bounds the summary as well as the list, so those four figures describe the returned page rather than the whole window, and days defaults to 30. Match a test by its title, which search_tests will find for you. This covers automated results only: use get_case_execution_history for how a MANUAL case has fared, and get_launch_tests for every test inside one launch rather than one test across many.",
+      "description": "Get the history of one AUTOMATED test across launches, newest first. Returns executions and summary - the attempt rows are in executions, matching get_case_execution_history, and there is NO history key. The headline figures are NESTED under summary rather than at the top level: totalExecutions, passRate, flipCount and reliabilityStatus. titlePath takes ONE segment of the path - the argument is titlePath, not title - and matching is a case-insensitive substring, so it can hit many tests. The response says how many: matchedTests is the number of DISTINCT tests the substring found, matchedTitlePath is the one these figures describe (the most recently seen), and otherMatches lists up to ten of the rest. A common leaf title such as should reject unauthenticated request matches 25 tests in one project here. When matchedTests is above 1, narrow the substring before quoting anything: the summary describes matchedTitlePath alone, never the group. IMPORTANT: there is one row per retry ATTEMPT, not per launch, so a test retried three times inside one launch contributes three rows; the retry field is 0-based and tells them apart. Group by runId before quoting anything as a per-launch figure, because totalExecutions and passRate are attempt-level. Each row carries testId, titlePath, filePath, runId, runName, runStartedAt, runTags, status and durationMs. reliabilityStatus is derived from the pass ratio over the window and does NOT separate a test that fails every retry from one that passes on a later retry; read retry and flipCount together to tell broken from flaky. limit bounds the summary as well as the list, and days defaults to 30. search_tests will find a segment for you. Use get_case_execution_history for how a MANUAL case has fared, and get_launch_tests for every test inside one launch rather than one test across many.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1372,7 +1365,7 @@
     },
     {
       "name": "link_autotest_to_case",
-      "description": "Link an automated test (by title) to a manual test case for coverage tracking. The autotest does not need to exist yet (pre-linking is allowed). When that test next reports a result, it links to this case automatically.",
+      "description": "Link an automated test, by title, to a manual test case for coverage tracking. The autotest does not need to exist yet, so pre-linking is allowed. IMPORTANT: the link applies going FORWARD only and no past results are backfilled, so a test with a long history still shows an empty includeRecentExecutions on get_test_case until it next reports. The returned testExists and wasCreated describe whether a test of that title has been seen and whether the link row was new, NOT whether any history was attached. Use get_test_history to read the results that already exist for that title.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1433,7 +1426,7 @@
     },
     {
       "name": "list_executions",
-      "description": "List Manual Test Executions for a project with progress stats. Use to find an existing execution id before adding sources. progress carries every case bucket (passed/failed/blocked/inTesting/notExecuted, which sum to total) plus passRate and completionRate.",
+      "description": "List Manual Test Executions for a project. Each row returns id, name, status, priority, environment, assignedTo, startDate, endDate, createdAt and progress. There is NO updatedAt on an execution, here or in get_execution, and startDate and endDate are planning dates a person types and are usually null - so createdAt cannot tell you when an execution was last worked on. For that, read get_execution_cases and take the newest executedAt across its rows. assignedTo is a bare user UUID that nothing on this surface resolves to a person. Use this to find an existing execution id before adding sources. progress carries every case bucket (passed/failed/blocked/inTesting/notExecuted, which sum to total) plus passRate and completionRate, both whole percentages from 0 to 100. passRate here is passed divided by TOTAL, so every case that has not been run yet counts against it and a young execution reads low through no fault of its results. That is a different denominator from get_case_execution_history, whose passRate divides by the rows actually executed, so do not compare the two numbers.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1450,7 +1443,7 @@
           },
           "status": {
             "type": "string",
-            "description": "Optional status filter"
+            "description": "Optional status filter, matched EXACTLY and case-sensitively against the execution_status vocabulary of the project; call get_project for the values it uses, since a project can rename them or add its own. An unrecognised value is rejected rather than answering with an empty list, which used to be indistinguishable from a genuine nothing-found. Note this matches the label a person set on the EXECUTION, not what is inside it: an execution holding blocked cases usually does not itself read blocked, so to find blocked WORK list without a filter and read progress.blocked."
           },
           "search": {
             "type": "string",
@@ -1511,7 +1504,7 @@
     },
     {
       "name": "list_folders",
-      "description": "List the folder and suite tree of a project as a flat array under folders, with a total count. Every row carries id, name, type (folder or suite), parentId, path, depth, casesCount (cases directly in it, so 0 for most containers), childFolderCount, displayOrder, createdAt and updatedAt, which is enough to rank folders by size or to find the suites without a second call. Use this to browse or to find an id, then get_folder for one folder in detail with optional statistics over its whole subtree. Suites are the leaf nodes that hold test cases; use list_test_cases for the cases themselves.",
+      "description": "List the folder and suite tree of a project as a flat array under folders, with a total count. Every row carries id, name, type (folder or suite), parentId, path, depth, casesCount, childFolderCount, displayOrder, createdAt and updatedAt, which is enough to find the suites without a second call. It is NOT enough to rank folders by size: casesCount counts only the cases directly in a folder, so it reads 0 on most containers and ranking by it surfaces the biggest leaf rather than the biggest branch. For a size ranking, rebuild the tree from parentId and sum the descendants, or call get_folder with includeStats for one subtree at a time. casesCount and childFolderCount count LIVE rows only, so archived cases and archived subfolders are invisible here unless you pass includeDeleted. Use this to browse or to find an id, then get_folder for one folder in detail. Suites are the leaf nodes that hold test cases; use list_test_cases for the cases themselves.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1530,11 +1523,6 @@
             "type": "boolean",
             "default": false,
             "description": "Include archived/deleted folders"
-          },
-          "includeStats": {
-            "type": "boolean",
-            "default": false,
-            "description": "Include basic statistics (slower query)"
           }
         },
         "required": [
@@ -1544,7 +1532,7 @@
     },
     {
       "name": "list_projects",
-      "description": "List all projects accessible to the current user. START HERE - call this first to get project IDs needed for other tools. Admins see all org projects; managers/users see only assigned projects.",
+      "description": "List the projects this key can reach. START HERE: almost every other tool needs a project UUID and this is where you get one. Admins see every project in the organisation, managers and users only the ones they are assigned to, so an empty list means no access rather than no projects. Ordered by the display order set in the UI first, then oldest created first, so do not read anything into the first entry beyond that. Returns each project with its id, name and metadata. Use get_project for one project in detail, including the status and priority vocabularies it actually uses, which you need before setting any status.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1559,7 +1547,7 @@
     },
     {
       "name": "list_releases",
-      "description": "List releases for a project with aggregated stats for manual tests and automated launches. Supports filtering by status and search.",
+      "description": "List releases for a project with aggregated stats for manual tests and automated launches. Returns project, a releases array, and pagination holding the real total; there is no top-level count or data field. Supports filtering by status and search. Reach for get_release when you have one id and want its linked executions and launches.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1576,13 +1564,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "planned",
-              "in_progress",
-              "completed",
-              "cancelled"
-            ],
-            "description": "Filter by release status"
+            "description": "Filter by release status. Values come from the project vocabulary, typically planned, in_progress, completed or cancelled, plus any the project added; call get_project for the list it uses. An unrecognised value is rejected rather than quietly ignored. Like an execution status and a launch status, a release status is SET BY A PERSON and never derived from the stats beside it: a release can read completed with half its cases unexecuted and its only linked launch failed, and a linked launch can postdate completedAt. Read the rollup for what actually happened."
           },
           "search": {
             "type": "string",
@@ -1614,7 +1596,7 @@
     },
     {
       "name": "list_test_cases",
-      "description": "List test cases in a project with filtering and pagination. Can filter by folder, status, priority, tags, or search query. Returns available status/priority values in metadata for filter options. Each case includes a shareUrl for sharing in Slack, Jira, etc. To resolve a user-facing \"TC-30\" (displayId) to its internal numeric id, pass search: \"TC-30\" - search matches the case number and accepts the \"TC-\" prefix - then read the matching case id.",
+      "description": "List test cases in a project with filtering and pagination. Can filter by folder, status, priority, tags, or a search query. The cases come back in an array called cases, the available status and priority values under meta, and the row count under pagination.total; there is no top-level total. Every row also carries createdAt and updatedAt, and updatedAt tracks edits to the case DEFINITION only: recording a manual result, or an automated test running against the case, does not move it, so updatedAt equal to createdAt means never edited rather than never used. There is no lastExecutedAt on a row - for when a case was last actually run, use get_case_execution_history for manual results or get_test_case with includeRecentExecutions for automated ones. Every case row also carries hasLinkedAutotests and linkedAutotestCount, which is the cheapest way to answer whether a case is automated - they count links made with link_autotest_to_case, the same narrow definition the automationStatus filter uses and the same one behind get_coverage_gaps summary and automationRate. Only the unlinkedAutotests section of that tool additionally treats a [TC-N] title marker as coverage. meta.availablePriorities can contain the entry custom, which is a marker rather than a priority a case can hold. Each case includes a shareUrl for sharing in Slack, Jira and the like. To resolve a user-facing TC-30 (a displayId) to its internal numeric id, pass search: \"TC-30\", since search matches the case number and accepts the TC- prefix, then read the matching case id.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1632,7 +1614,7 @@
           "folderId": {
             "type": "string",
             "format": "uuid",
-            "description": "Filter by specific folder UUID. Omit to list all cases in project."
+            "description": "Filter to cases held DIRECTLY by this folder UUID. It does NOT recurse, so a container folder answers with 0 however many cases sit nested beneath it, and that zero looks exactly like an empty folder. For a subtree count call get_folder with includeStats and read statistics.totalCases; to list the cases, walk the tree with list_folders and ask for each suite. Omit to list every case in the project."
           },
           "status": {
             "type": "string",
@@ -1726,7 +1708,7 @@
               "completed",
               "blocked"
             ],
-            "description": "Filter by collection status"
+            "description": "Filter by collection status. Unlike case and release statuses, a collection status is NOT project-configurable: the storage layer accepts only these four, so ignore whatever test_run_status get_project reports for this purpose. An unrecognised value is rejected rather than quietly ignored."
           },
           "includeDeleted": {
             "type": "boolean",
@@ -1854,7 +1836,7 @@
           "runId": {
             "type": "string",
             "format": "uuid",
-            "description": "Source group UUID (execution_test_run id) to remove"
+            "description": "The source group to remove, which is the id get_execution returns as sources[].id - NOT the id of the suite or Collection the group was created from, and there is no sourceId argument. Confusingly it is spelled runId here because the underlying row is an execution_test_run."
           }
         },
         "required": [
@@ -1865,7 +1847,7 @@
     },
     {
       "name": "report_case_result",
-      "description": "Record the result of running one case inside a Manual Test Execution: set per-step pass/fail and/or the case status, atomically and idempotently. Target the case by executionCaseId (from get_execution_cases) OR by executionId + caseId (numeric; if the case is in several groups, pass groupId or use executionCaseId). status: an explicit value (passed/failed/blocked/in_testing/not_executed), or \"auto\" to derive it from the steps (failed then blocked then in_testing then passed), or omit it to leave the case status unchanged (e.g. when only writing one step). steps[].status is one of not_executed/passed/failed/blocked/skipped; index is the 0-based position in the case steps. The containing source group's status auto-rolls from its cases' results: all not_executed -> not_started, some executed -> in_progress, all executed -> blocked if the group contains a blocked case, else completed (test_run_status has no failed; failures show via the group's counters). An explicit set_execution_source_status override lasts until the next report on that group recomputes it. Returns the case status, the group status, the steps written, and fresh execution progress.",
+      "description": "Record the result of running one case inside a Manual Test Execution: set per-step pass/fail and/or the case status, atomically and idempotently. Target the case by executionCaseId (from get_execution_cases) OR by executionId + caseId (numeric; if the case is in several groups, pass groupId or use executionCaseId). A Test Collection is NOT an Execution, and the trap has a name: the per-case rows get_test_collection returns carry a field called executionId, which is the id of the row inside that Collection and is rejected here with Execution case not found. To record results against a Collection, add it to an Execution with add_collections_to_execution and use the rows get_execution_cases gives you. status: an explicit value (passed/failed/blocked/in_testing/not_executed), or \"auto\" to derive it from the steps (failed then blocked then in_testing then passed), or omit it to leave the case status unchanged (e.g. when only writing one step). steps[].status is one of not_executed/passed/failed/blocked/skipped; index is the 0-based position in the case steps. The containing source group's status auto-rolls from its cases' results, where EXECUTED means anything other than not_executed - so a case parked in_testing counts as executed, and the same is true of the completionRate get_execution reports. A group whose every case is in_testing therefore reads completed, and the execution reads 100 percent complete, while the work is still going on. The rule: all not_executed -> not_started, some executed -> in_progress, all executed -> blocked if the group contains a blocked case, else completed (test_run_status has no failed; failures show via the group's counters). An explicit set_execution_source_status override lasts until the next report on that group recomputes it. The status of the EXECUTION itself does not roll at all: it stays wherever it was until you move it with update_execution, so an execution whose cases have all been run can still read not_executed. Returns the case status, the group status, the steps written, and fresh execution progress.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1896,7 +1878,7 @@
           },
           "status": {
             "type": "string",
-            "description": "Case status: passed/failed/blocked/in_testing/not_executed, or \"auto\" to derive from steps, or omit to leave unchanged."
+            "description": "Case status from the project vocabulary, typically not_executed, in_testing, passed, failed or blocked, plus any the project added; call get_project for the list it uses. Pass \"auto\" to derive it from the step results, or omit to leave the status unchanged. The per-step status inside steps[] is a different and fixed vocabulary."
           },
           "steps": {
             "type": "array",
@@ -1953,7 +1935,7 @@
     },
     {
       "name": "run_health_check",
-      "description": "Get a holistic health assessment for a project: a composite score from 0 to 100 blending automation stability, coverage and manual execution, plus per-dimension subScores and sections for automation (pass rate, flaky, failures), testAssets (case and suite counts, status and priority breakdown), coverage (automation rate and pass-rate trend), manualExecution (pass, fail, blocked, completion) and releases (status counts and active releases). IMPORTANT: days defaults to 14 here while get_launches_trends defaults to 30, so pass the same days to both before comparing their answers. Use include[] to limit which sections are computed. Reach for get_coverage_gaps when you want the specific cases and folders that lack automation rather than one score, and get_feature_scan when the scope is a single Jira issue.",
+      "description": "Get a holistic health assessment for a project: a composite score from 0 to 100 blending automation stability, coverage and manual execution. IMPORTANT: healthScore is NOT comparable BETWEEN projects. The composite weights automation 50 percent, coverage 30 and manual execution 20, then RENORMALISES over whichever of the three actually have data - so a project with no manual executions is scored out of the other two rather than penalised for the gap, and a project holding one test case can score 100 on coverage. A project can therefore outrank another while scoring worse on every dimension the two share. Compare subScores one dimension at a time and say which dimensions each project has. The status label, healthy or warning or critical, is banded straight off that same number and is exactly as incomparable, so do not rank by the word either. Quote healthScore only for one project against itself, and only across calls made with the SAME days and the same include[] - a narrower include[] drops dimensions out of the divisor and moves the score on its own - a wider window can catch work that adds a whole dimension to the renormalisation and move the score with no change in health. One project here scores 20 at 30 days and 21 at 90 purely because two manual executions came into view. The default is 14, so three calls with three windows give three rankings. It returns per-dimension subScores and sections for automation, whose three failure counts mean three different things: failedTests is tests that ENDED failed, consistentlyFailingCount is tests that failed at least three times and NEVER passed in the window, and flakyTestCount is distinct tests that both passed and failed. A test that recovers on retry belongs to the last of those and to none of the others. Its testPassRate counts flaky as a pass, so it is (passedTests + flakyResults) / totalTests, the same formula get_launches_statistics uses, and like that tool it answers null rather than 0 when the window held nothing. This section counts ONLY launches that ended passed or failed, while get_launches_statistics counts every launch in the window, so a launch stored as finished, running, interrupted, timedOut or completed contributes its tests there and not here. The difference between the two totalTests is exactly the tests inside those launches, and it reconciles to the launch: subtract them and the counts match. The rates still agree to about a decimal place because the excluded launches are usually small; the section reports BOTH flaky numbers because they are different units, flakyResults being flaky results and flakyTestCount being DISTINCT tests that both passed and failed over the window, which is what drives the flakiness penalty), testAssets (case and suite counts, status and priority breakdown - both count only cases that HAVE a value, with no residual bucket for the unset ones, so neither is guaranteed to sum to totalCases: in one project here byStatus accounts for 65 of 87 and byPriority for 70), coverage (automation rate and pass-rate trend), manualExecution (pass, fail, blocked, completion) and releases (status counts and active releases). IMPORTANT: days defaults to 14 here while get_launches_trends defaults to 30, so pass the same days to both before comparing their answers. Use include[] to limit which sections are computed. Reach for get_coverage_gaps when you want the specific cases and folders that lack automation rather than one score, and get_feature_scan when the scope is a single Jira issue.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1997,7 +1979,7 @@
     },
     {
       "name": "search_tests",
-      "description": "Search for tests by title, file path, or tags. Returns matching tests with their most recent execution status and reliability metrics. Use this to find tests related to a specific feature or area.",
+      "description": "Search AUTOMATED tests by title, file path or tag, and get how each has been doing. Each row carries titlePath (an array; get_test_history wants ONE segment of it), filePath, lastStatus, reliability, totalExecutions, passedCount, failedCount, passRate, avgDurationMs and lastSeen. IMPORTANT: days defaults to 7 here, the shortest window of any tool - a test that has not run in the last week is simply absent, which reads as does not exist rather than has not run lately. Pass days explicitly whenever the question is not about this week. The counts are of ATTEMPTS, so a retried test contributes more than one, and passRate is passedCount divided by totalExecutions on that basis; reliability is derived from the same rows, reading flaky when both a pass and a failure appear in the window. It returns NO linkage information at all, so it cannot answer whether a test is tied to a manual case: use get_test_case with includeRecentExecutions for that. Use get_test_history for one test in full detail over a longer window - it takes the segment as titlePath, where this tool takes query - and get_launch_tests for every test in one launch.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -2026,7 +2008,7 @@
               "all"
             ],
             "default": "all",
-            "description": "Filter by recent execution status"
+            "description": "Filter by what happened in the WINDOW, not by how the test stands now, and the two ends are not symmetrical: failed selects tests with AT LEAST ONE failed attempt, while passed selects only tests where EVERY attempt passed. So a test that failed once a month ago and has been green since is returned by failed and withheld by passed. It cannot answer what is failing now. lastStatus on each row comes closest: it is the FINAL attempt of the most recent launch in the window, so a test that failed and then passed on retry reads passed. But the window is still the window - a test that has not run since it was fixed carries whatever it last did - so for the present state take the newest launch from get_launches_statistics and read it with get_launch_tests. flaky selects tests with both a pass and a failure in the window."
           },
           "days": {
             "type": "integer",
@@ -2295,13 +2277,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "planned",
-              "in_progress",
-              "completed",
-              "cancelled"
-            ],
-            "description": "New status: planned, in_progress, completed, or cancelled. Setting to \"completed\" auto-sets completed_at timestamp."
+            "description": "New release status, from the project vocabulary, typically planned, in_progress, completed or cancelled, plus any the project added; call get_project for the list it uses. Setting it to completed also stamps completed_at."
           },
           "startDate": {
             "type": "string",
@@ -2429,17 +2405,17 @@
               "completed",
               "blocked"
             ],
-            "description": "New status: not_started, in_progress, completed, or blocked."
+            "description": "New collection status. NOT project-configurable and matched exactly: the storage layer accepts only these four, and neither a label such as \"In Progress\" nor a different case such as \"IN_PROGRESS\" will do."
           },
           "priority": {
             "type": "string",
             "enum": [
-              "low",
-              "medium",
+              "critical",
               "high",
-              "critical"
+              "medium",
+              "low"
             ],
-            "description": "New priority: low, medium, high, or critical."
+            "description": "New priority. NOT project-configurable: the storage layer accepts only these four, in lowercase. Matching ignores case and the value is stored lowercase, so Critical and critical both land as critical."
           },
           "environment": {
             "type": "string",
