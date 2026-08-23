@@ -1,0 +1,20 @@
+version: 2
+
+# Keeps the actions this workflow depends on current, and makes an update
+# arrive as a pull request we review rather than as code that changed
+# underneath us. Grouped so a quiet week produces nothing and a busy one
+# produces one pull request, not four.
+#
+# Scoped to GitHub Actions on purpose. Package dependencies are not watched
+# here; Dependabot's security alerts already cover those.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
